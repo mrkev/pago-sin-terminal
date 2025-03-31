@@ -75,7 +75,7 @@ export default function Home() {
 
     // Create QR code URL
     const qrUrl = `${window.location.origin}/qr?q=${encodeURIComponent(
-      base64
+      base64,
     )}`;
     setQrValue(qrUrl);
   }

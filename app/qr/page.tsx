@@ -183,7 +183,7 @@ export default function QRPage() {
                           onClick={() =>
                             copyToClipboard(
                               decodedData.informacionBancaria.clabe,
-                              "clabe"
+                              "clabe",
                             )
                           }
                         >
@@ -224,7 +224,7 @@ export default function QRPage() {
                             copyToClipboard(
                               decodedData.informacionBancaria
                                 .nombreBeneficiario,
-                              "nombreBeneficiario"
+                              "nombreBeneficiario",
                             )
                           }
                         >
