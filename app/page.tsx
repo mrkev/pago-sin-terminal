@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useRef } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import * as z from "zod";
 import QRCode from "react-qr-code";
+import * as z from "zod";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -25,8 +25,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Separator } from "@/components/ui/separator";
 import { Download, FileText } from "lucide-react";
 
 const formSchema = z.object({
@@ -75,7 +75,7 @@ export default function Home() {
 
     // Create QR code URL
     const qrUrl = `${window.location.origin}/qr?q=${encodeURIComponent(
-      base64,
+      base64
     )}`;
     setQrValue(qrUrl);
   }
