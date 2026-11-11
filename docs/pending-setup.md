@@ -58,25 +58,27 @@ forwards that case to the callback, but the Site URL must still be right).
 
 In **Authentication → URL Configuration**:
 
-- **Site URL:** the production URL (it defaults to `http://localhost:3000`).
-  Today that's `https://pago-sin-terminal-kevinchavez-scalecoms-projects.vercel.app`;
-  update it when the real domain (e.g. `clabe.club`) is set up.
+- **Site URL:** `https://clabe.vercel.app` (it defaults to
+  `http://localhost:3000`). Update it when the real domain (e.g.
+  `clabe.club`) is set up.
 - **Redirect URLs:** add
   - `http://localhost:3000/**` (local development)
-  - `https://pago-sin-terminal-kevinchavez-scalecoms-projects.vercel.app/auth/callback`
-  - `https://*-kevinchavez-scalecoms-projects.vercel.app/**` (Vercel previews)
+  - `https://clabe.vercel.app/auth/callback`
+  - `https://clabe-*-kevin-chavezs-projects.vercel.app/**` (Vercel previews)
   - the real domain's `/auth/callback`, once there is one
 
-## Vercel environment variables
+## Vercel: connect the GitHub repo
 
-The Vercel project (`pago-sin-terminal`, team
-`kevinchavez-scalecoms-projects`) needs the same values as `.env.local`, for
-Production, Preview and Development. Without them the site still works, but
-accounts are unavailable.
+The Vercel project is `clabe` in "Kevin Chavez's projects" (account
+`aykev`), live at https://clabe.vercel.app. Its env vars are set. It isn't
+connected to GitHub yet, so pushes to `main` don't deploy it; deploy with
+`vercel deploy --prod` until then.
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+1. In Vercel, **Account Settings → Authentication**, add GitHub as a login
+   connection, and give the Vercel GitHub app access to
+   `mrkev/pago-sin-terminal`.
+2. Run `vercel git connect` in this repo.
 
-`NEXT_PUBLIC_` values are baked in at build time, so redeploy after adding
-them. (Claude's Vercel connector couldn't set these: it lacks permission to
-read or write project env vars.)
+The old `pago-sin-terminal` project in the other Vercel account
+(kevinchavez-scalecom's projects) still deploys on every push; remove its Git
+connection or delete it once `clabe` is connected.
