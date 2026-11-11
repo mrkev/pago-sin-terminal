@@ -12,7 +12,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Check, Copy } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 interface DecodedData {
   encabezado: string;
@@ -23,33 +23,41 @@ interface DecodedData {
   estilo?: "neutral" | "garage";
 }
 
+function decodeData(base64String: string | null): {
+  decodedData: DecodedData | null;
+  error: string | null;
+} {
+  if (!base64String) {
+    return {
+      decodedData: null,
+      error: "No se proporcionó ningún código para decodificar",
+    };
+  }
+
+  try {
+    // Decode base64 to JSON string, then parse it
+    const data = JSON.parse(atob(base64String)) as DecodedData;
+    return { decodedData: data, error: null };
+  } catch (err) {
+    console.error(err);
+    return {
+      decodedData: null,
+      error: "Error al decodificar los datos. El formato no es válido.",
+    };
+  }
+}
+
 export default function QRPage() {
   const searchParams = useSearchParams();
-  const [decodedData, setDecodedData] = useState<DecodedData | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [copiedItems, setCopiedItems] = useState<{ [key: string]: boolean }>({
     clabe: false,
     nombreBeneficiario: false,
   });
   const base64String = searchParams.get("q");
-
-  useEffect(() => {
-    if (!base64String) {
-      setError("No se proporcionó ningún código para decodificar");
-      return;
-    }
-
-    try {
-      // Decode base64 to JSON string
-      const jsonString = atob(base64String);
-      // Parse JSON string to object
-      const data = JSON.parse(jsonString) as DecodedData;
-      setDecodedData(data);
-    } catch (err) {
-      setError("Error al decodificar los datos. El formato no es válido.");
-      console.error(err);
-    }
-  }, [base64String]);
+  const { decodedData, error } = useMemo(
+    () => decodeData(base64String),
+    [base64String],
+  );
 
   // Load garage stylesheet if needed
   useEffect(() => {
@@ -150,7 +158,7 @@ export default function QRPage() {
                       <div className="flex items-center mt-1">
                         <div
                           className={
-                            "custom-field-value flex-grow p-3 rounded-l-md bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                            "custom-field-value grow p-3 rounded-l-md bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
                           }
                         >
                           {decodedData.informacionBancaria.clabe}
@@ -164,7 +172,7 @@ export default function QRPage() {
                           onClick={() =>
                             copyToClipboard(
                               decodedData.informacionBancaria.clabe,
-                              "clabe"
+                              "clabe",
                             )
                           }
                         >
@@ -188,7 +196,7 @@ export default function QRPage() {
                       <div className="flex items-center mt-1">
                         <div
                           className={
-                            "flex-grow p-3 rounded-l-md bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 custom-field-value"
+                            "grow p-3 rounded-l-md bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 custom-field-value"
                           }
                         >
                           {decodedData.informacionBancaria.nombreBeneficiario}
@@ -203,7 +211,7 @@ export default function QRPage() {
                             copyToClipboard(
                               decodedData.informacionBancaria
                                 .nombreBeneficiario,
-                              "nombreBeneficiario"
+                              "nombreBeneficiario",
                             )
                           }
                         >

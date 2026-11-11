@@ -42,7 +42,7 @@ const formSchema = z.object({
       message: "El nombre no debe contener caracteres especiales",
     })
     .min(1, { message: "El nombre del beneficiario es requerido" }),
-  estilo: z.enum(["neutral", "garage"]).default("neutral"),
+  estilo: z.enum(["neutral", "garage"]),
 });
 
 export default function Home() {
@@ -75,7 +75,7 @@ export default function Home() {
 
     // Create QR code URL
     const qrUrl = `${window.location.origin}/qr?q=${encodeURIComponent(
-      base64
+      base64,
     )}`;
     setQrValue(qrUrl);
   }
