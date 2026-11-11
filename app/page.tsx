@@ -1,11 +1,12 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Download, FileText } from "lucide-react";
 import { useRef, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import QRCode from "react-qr-code";
-import * as z from "zod";
 
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -25,101 +26,72 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { Download, FileText } from "lucide-react";
+import { clabeBankName } from "@/lib/clabe";
+import {
+  type ClabePage,
+  clabePagePath,
+  clabePageSchema,
+} from "@/lib/clabe-page";
 
-const formSchema = z.object({
-  encabezado: z.string().min(1, { message: "El encabezado es requerido" }),
-  clabe: z
-    .string()
-    .length(18, { message: "La CLABE debe tener exactamente 18 dígitos" })
-    .regex(/^\d+$/, { message: "La CLABE solo debe contener números" }),
-  nombreBeneficiario: z
-    .string()
-    .max(80, { message: "El nombre no puede exceder 80 caracteres" })
-    .regex(/^[a-zA-Z0-9\s]+$/, {
-      message: "El nombre no debe contener caracteres especiales",
-    })
-    .min(1, { message: "El nombre del beneficiario es requerido" }),
-  estilo: z.enum(["neutral", "garage"]),
-});
+/** Pixel size of the QR in the downloaded PNG, not counting the margin. */
+const DOWNLOAD_SIZE = 1024;
+/** Blank margin around a QR code, in modules, needed for reliable scans. */
+const QUIET_ZONE_MODULES = 4;
 
 export default function Home() {
   const [qrValue, setQrValue] = useState<string | null>(null);
   const qrRef = useRef<HTMLDivElement>(null);
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<ClabePage>({
+    resolver: zodResolver(clabePageSchema),
     defaultValues: {
-      encabezado: "",
+      titulo: "",
       clabe: "",
-      nombreBeneficiario: "",
-      estilo: "neutral",
+      nombre: "",
     },
   });
+  const clabe = useWatch({ control: form.control, name: "clabe" });
+  const bank = clabeBankName(clabe);
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    const jsonData = {
-      encabezado: values.encabezado,
-      informacionBancaria: {
-        clabe: values.clabe,
-        nombreBeneficiario: values.nombreBeneficiario,
-      },
-      estilo: values.estilo,
-    };
-
-    // Convert to JSON string and then to base64
-    const jsonString = JSON.stringify(jsonData);
-    const base64 = btoa(jsonString);
-
-    // Create QR code URL
-    const qrUrl = `${window.location.origin}/qr?q=${encodeURIComponent(
-      base64,
-    )}`;
-    setQrValue(qrUrl);
+  function onSubmit(values: ClabePage) {
+    setQrValue(`${window.location.origin}${clabePagePath(values)}`);
   }
 
   const fillExampleData = () => {
-    form.setValue("encabezado", "Cafe Ejemplar");
-    form.setValue("clabe", "000000000000000000");
-    form.setValue("nombreBeneficiario", "Kevin Chavez");
-    form.setValue("estilo", "neutral");
+    form.setValue("titulo", "Café Ejemplar");
+    form.setValue("clabe", "012180000000000002");
+    form.setValue("nombre", "Kevin Chavez");
   };
 
   const downloadQRCode = () => {
-    if (!qrRef.current) return;
-
-    // Create a canvas element
-    const canvas = document.createElement("canvas");
-    const svg = qrRef.current.querySelector("svg");
-
+    const svg = qrRef.current?.querySelector("svg");
     if (!svg) return;
 
-    const svgData = new XMLSerializer().serializeToString(svg);
-    const img = new Image();
+    // react-qr-code sets the viewBox to the QR's size in modules.
+    const modules = svg.viewBox.baseVal.width;
+    const margin = Math.round((DOWNLOAD_SIZE / modules) * QUIET_ZONE_MODULES);
 
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = DOWNLOAD_SIZE + margin * 2;
+
+    const img = new Image();
     img.onload = () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
 
-      // Fill with white background
       ctx.fillStyle = "white";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, margin, margin, DOWNLOAD_SIZE, DOWNLOAD_SIZE);
 
-      ctx.drawImage(img, 0, 0);
-
-      // Create download link
       const link = document.createElement("a");
       link.download = "clabe-club-qr.png";
       link.href = canvas.toDataURL("image/png");
       link.click();
     };
 
-    img.src = `data:image/svg+xml;base64,${btoa(svgData)}`;
+    const svgData = new XMLSerializer().serializeToString(svg);
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgData)}`;
   };
 
   return (
@@ -152,12 +124,16 @@ export default function Home() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
               <FormField
                 control={form.control}
-                name="encabezado"
+                name="titulo"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Encabezado</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ej. Café Ejemplar" {...field} />
+                      <Input
+                        placeholder="Ej. Café Ejemplar"
+                        maxLength={60}
+                        {...field}
+                      />
                     </FormControl>
                     <FormDescription>
                       Puede ser el nombre de tu negocio o cualquier título que
@@ -170,7 +146,7 @@ export default function Home() {
 
               <div>
                 <h3 className="text-lg font-medium mb-4">
-                  Información Bancaria
+                  Información bancaria
                 </h3>
                 <Separator className="mb-4" />
 
@@ -184,12 +160,19 @@ export default function Home() {
                         <FormControl>
                           <Input
                             placeholder="Los 18 dígitos de tu CLABE"
-                            maxLength={18}
+                            inputMode="numeric"
+                            autoComplete="off"
                             {...field}
+                            // Accept pasted CLABEs with spaces or dashes.
+                            onChange={(e) =>
+                              field.onChange(
+                                e.target.value.replace(/\D/g, "").slice(0, 18),
+                              )
+                            }
                           />
                         </FormControl>
                         <FormDescription>
-                          Exactamente 18 dígitos, solo números
+                          {bank ? `Banco: ${bank}` : "18 dígitos, solo números"}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -198,10 +181,10 @@ export default function Home() {
 
                   <FormField
                     control={form.control}
-                    name="nombreBeneficiario"
+                    name="nombre"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Nombre del Beneficiario</FormLabel>
+                        <FormLabel>Nombre del beneficiario</FormLabel>
                         <FormControl>
                           <Input
                             placeholder="Como aparece en tu banco"
@@ -209,53 +192,12 @@ export default function Home() {
                             {...field}
                           />
                         </FormControl>
-                        <FormDescription>
-                          Máximo 80 caracteres, sin caracteres especiales
-                        </FormDescription>
+                        <FormDescription>Máximo 80 caracteres</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
-              </div>
-
-              <div style={{ display: "none" }}>
-                <h3 className="text-lg font-medium mb-4">Estilo</h3>
-                <Separator className="mb-4" />
-
-                <FormField
-                  control={form.control}
-                  name="estilo"
-                  render={({ field }) => (
-                    <FormItem className="space-y-3">
-                      <FormControl>
-                        <RadioGroup
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                          className="flex flex-col space-y-1"
-                        >
-                          <FormItem className="flex items-center space-x-3 space-y-0">
-                            <FormControl>
-                              <RadioGroupItem value="neutral" />
-                            </FormControl>
-                            <FormLabel className="font-normal">
-                              Neutral
-                            </FormLabel>
-                          </FormItem>
-                          <FormItem className="flex items-center space-x-3 space-y-0">
-                            <FormControl>
-                              <RadioGroupItem value="garage" />
-                            </FormControl>
-                            <FormLabel className="font-normal">
-                              Garage
-                            </FormLabel>
-                          </FormItem>
-                        </RadioGroup>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
               </div>
 
               <Button type="submit" className="w-full">
