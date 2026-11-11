@@ -1,5 +1,8 @@
+"use client";
+
 import { Lock } from "lucide-react";
 
+import { useAuth } from "@/components/auth/auth-provider";
 import {
   AccordionContent,
   AccordionItem,
@@ -56,10 +59,12 @@ export function EditorSection({
 }
 
 /**
- * Shows what a locked section offers, non-interactive, with a prompt to
- * sign up or log in.
+ * Shows what a locked section offers, non-interactive. Signed out, it
+ * prompts to sign up or log in; signed in, it says the feature is coming.
  */
 function LockedContent({ children }: { children: React.ReactNode }) {
+  const { user, openSignIn } = useAuth();
+
   return (
     <>
       <div
@@ -68,18 +73,33 @@ function LockedContent({ children }: { children: React.ReactNode }) {
       >
         {children}
       </div>
-      <div className="flex flex-col items-center gap-3 rounded-lg bg-muted/60 p-4 text-center sm:flex-row sm:justify-between sm:text-left">
-        <p className="text-sm">Crea una cuenta para desbloquear esto.</p>
-        <div className="flex shrink-0 gap-2">
-          {/* TODO: wire to Supabase auth. */}
-          <Button type="button" size="sm">
-            Crear cuenta
-          </Button>
-          <Button type="button" size="sm" variant="ghost">
-            Iniciar sesión
-          </Button>
+      {user ? (
+        <p className="rounded-lg bg-muted/60 p-4 text-center text-sm">
+          Muy pronto. Ya tienes cuenta, así que lo verás aquí en cuanto esté
+          listo.
+        </p>
+      ) : (
+        <div className="flex flex-col items-center gap-3 rounded-lg bg-muted/60 p-4 text-center sm:flex-row sm:justify-between sm:text-left">
+          <p className="text-sm">Crea una cuenta para desbloquear esto.</p>
+          <div className="flex shrink-0 gap-2">
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => openSignIn("signup")}
+            >
+              Crear cuenta
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => openSignIn("login")}
+            >
+              Iniciar sesión
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
     </>
   );
 }
