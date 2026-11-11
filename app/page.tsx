@@ -1,13 +1,13 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Check, Download, ExternalLink, Link2, Share2 } from "lucide-react";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { useForm, useWatch } from "react-hook-form";
-import QRCode from "react-qr-code";
+import { Check, ImageIcon } from "lucide-react";
+import { useState } from "react";
+import { type FieldErrors, useForm, useWatch } from "react-hook-form";
 
 import { PaymentCard } from "@/components/payment-card/payment-card";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { Accordion } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -30,15 +30,15 @@ import {
 } from "@/lib/payment-page";
 import { cn } from "@/lib/utils";
 
-import { qrToPng } from "./qr-image";
-
-const QR_FILENAME = "clabe-club-qr.png";
+import { EditorSection } from "./editor-section";
+import { Result } from "./result";
 
 const ALL_BANKS = Object.entries(BANKS).sort(([, a], [, b]) =>
   a.localeCompare(b, "es"),
 );
 
-const noopSubscribe = () => () => {};
+/** Sections open by default: everything that works without an account. */
+const DEFAULT_OPEN_SECTIONS = ["datos", "estilo"];
 
 export default function Home() {
   const form = useForm<PaymentForm>({
@@ -66,8 +66,19 @@ export default function Home() {
   const [generatedPath, setGeneratedPath] = useState<string | null>(null);
   const showResult = generatedPath !== null && generatedPath === currentPath;
 
+  const [openSections, setOpenSections] = useState(DEFAULT_OPEN_SECTIONS);
+
   function onSubmit(data: PaymentForm) {
     setGeneratedPath(paymentPagePath(formToLink(data)));
+  }
+
+  // Errors can be in a collapsed section: open it and focus the field.
+  function onInvalid(errors: FieldErrors<PaymentForm>) {
+    setOpenSections((open) =>
+      open.includes("datos") ? open : [...open, "datos"],
+    );
+    const first = Object.keys(errors)[0] as keyof PaymentForm | undefined;
+    if (first) requestAnimationFrame(() => form.setFocus(first));
   }
 
   function fillExampleData() {
@@ -85,182 +96,256 @@ export default function Home() {
             Ingresa la información que incluirá la página de tu cuenta
           </p>
         </div>
-        <ThemeToggle className="shrink-0" />
+        <div className="flex shrink-0 items-center gap-2">
+          {/* TODO: wire to Supabase auth. */}
+          <Button type="button" variant="ghost" size="sm">
+            Iniciar sesión
+          </Button>
+          <ThemeToggle />
+        </div>
       </header>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:grid-rows-[auto_1fr] lg:gap-x-12">
         <Form {...form}>
           <form
             id="payment-form"
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="space-y-6 lg:col-start-1 lg:row-start-1"
+            onSubmit={form.handleSubmit(onSubmit, onInvalid)}
+            className="lg:col-start-1 lg:row-start-1"
           >
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={fillExampleData}
+            <Accordion
+              type="multiple"
+              value={openSections}
+              onValueChange={setOpenSections}
+              className="space-y-3"
+            >
+              <EditorSection
+                value="datos"
+                title="Datos de pago"
+                description="Lo que necesita quien te paga"
               >
-                Llenar con ejemplo
-              </Button>
-            </div>
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={fillExampleData}
+                  >
+                    Llenar con ejemplo
+                  </Button>
+                </div>
 
-            <FormField
-              control={form.control}
-              name="titulo"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Encabezado</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Ej. Café Ejemplar"
-                      maxLength={60}
-                      autoComplete="organization"
-                      enterKeyHint="next"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Puede ser el nombre de tu negocio o cualquier título que
-                    quieras
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                <FormField
+                  control={form.control}
+                  name="titulo"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Encabezado</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Ej. Café Ejemplar"
+                          maxLength={60}
+                          autoComplete="organization"
+                          enterKeyHint="next"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Puede ser el nombre de tu negocio o cualquier título que
+                        quieras
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <FormField
-              control={form.control}
-              name="cuenta"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>CLABE o tarjeta de débito</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="18 o 16 dígitos"
-                      inputMode="numeric"
-                      autoComplete="off"
-                      enterKeyHint="next"
-                      {...field}
-                      // Accept pasted numbers with spaces or dashes.
-                      onChange={(e) =>
-                        field.onChange(
-                          e.target.value.replace(/\D/g, "").slice(0, 18),
-                        )
-                      }
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    {tipo === "clabe"
-                      ? `CLABE${bank ? ` · ${bank}` : ""}`
-                      : tipo === "tarjeta"
-                        ? "Tarjeta de débito"
-                        : "CLABE de 18 dígitos o tarjeta de débito de 16"}
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                <FormField
+                  control={form.control}
+                  name="cuenta"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>CLABE o tarjeta de débito</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="18 o 16 dígitos"
+                          inputMode="numeric"
+                          autoComplete="off"
+                          enterKeyHint="next"
+                          {...field}
+                          // Accept pasted numbers with spaces or dashes.
+                          onChange={(e) =>
+                            field.onChange(
+                              e.target.value.replace(/\D/g, "").slice(0, 18),
+                            )
+                          }
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        {tipo === "clabe"
+                          ? `CLABE${bank ? ` · ${bank}` : ""}`
+                          : tipo === "tarjeta"
+                            ? "Tarjeta de débito"
+                            : "CLABE de 18 dígitos o tarjeta de débito de 16"}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            {tipo === "tarjeta" && (
-              <FormField
-                control={form.control}
-                name="banco"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Banco de tu tarjeta</FormLabel>
-                    <FormControl>
-                      <select
-                        className={cn(
-                          "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:text-sm",
-                          !field.value && "text-muted-foreground",
-                        )}
-                        {...field}
-                      >
-                        <option value="" disabled>
-                          Elige tu banco
-                        </option>
-                        <optgroup label="Más comunes">
-                          {COMMON_BANK_CODES.map((code) => (
-                            <option key={code} value={code}>
-                              {BANKS[code]}
+                {tipo === "tarjeta" && (
+                  <FormField
+                    control={form.control}
+                    name="banco"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Banco de tu tarjeta</FormLabel>
+                        <FormControl>
+                          <select
+                            className={cn(
+                              "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:text-sm",
+                              !field.value && "text-muted-foreground",
+                            )}
+                            {...field}
+                          >
+                            <option value="" disabled>
+                              Elige tu banco
                             </option>
-                          ))}
-                        </optgroup>
-                        <optgroup label="Todos">
-                          {ALL_BANKS.map(([code, name]) => (
-                            <option key={code} value={code}>
-                              {name}
-                            </option>
-                          ))}
-                        </optgroup>
-                      </select>
-                    </FormControl>
-                    <FormDescription>
-                      Quien te pague lo necesita para transferir a una tarjeta
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
+                            <optgroup label="Más comunes">
+                              {COMMON_BANK_CODES.map((code) => (
+                                <option key={code} value={code}>
+                                  {BANKS[code]}
+                                </option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="Todos">
+                              {ALL_BANKS.map(([code, name]) => (
+                                <option key={code} value={code}>
+                                  {name}
+                                </option>
+                              ))}
+                            </optgroup>
+                          </select>
+                        </FormControl>
+                        <FormDescription>
+                          Quien te pague lo necesita para transferir a una
+                          tarjeta
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 )}
-              />
-            )}
 
-            <FormField
-              control={form.control}
-              name="nombre"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nombre del beneficiario</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Como aparece en tu banco"
-                      maxLength={80}
-                      autoComplete="name"
-                      enterKeyHint="done"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormDescription>Máximo 80 caracteres</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                <FormField
+                  control={form.control}
+                  name="nombre"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nombre del beneficiario</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Como aparece en tu banco"
+                          maxLength={80}
+                          autoComplete="name"
+                          enterKeyHint="done"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription>Máximo 80 caracteres</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </EditorSection>
 
-            <FormField
-              control={form.control}
-              name="estilo"
-              render={({ field }) => (
-                <FormItem>
-                  <fieldset>
-                    <legend className="mb-2 text-sm font-medium">Estilo</legend>
-                    <div className="grid grid-cols-3 gap-2">
-                      {ESTILOS.map((estilo) => (
-                        <label
-                          key={estilo}
-                          className="cursor-pointer rounded-lg border p-2 text-center text-sm transition-colors hover:bg-accent has-checked:border-primary has-checked:ring-2 has-checked:ring-primary has-focus-visible:ring-2 has-focus-visible:ring-ring"
-                        >
-                          <input
-                            type="radio"
-                            name={field.name}
-                            value={estilo}
-                            checked={field.value === estilo}
-                            onChange={() => field.onChange(estilo)}
-                            className="sr-only"
-                          />
-                          <span
-                            aria-hidden
-                            className="mb-2 block h-10 rounded-md border"
-                            style={{ background: ESTILO_INFO[estilo].swatch }}
-                          />
-                          {ESTILO_INFO[estilo].label}
-                        </label>
-                      ))}
+              <EditorSection
+                value="estilo"
+                title="Estilo"
+                description="Cómo se ve tu página"
+              >
+                <FormField
+                  control={form.control}
+                  name="estilo"
+                  render={({ field }) => (
+                    <FormItem>
+                      <fieldset>
+                        <legend className="sr-only">Estilo</legend>
+                        <div className="grid grid-cols-3 gap-2">
+                          {ESTILOS.map((estilo) => (
+                            <label
+                              key={estilo}
+                              className="cursor-pointer rounded-lg border p-2 text-center text-sm transition-colors hover:bg-accent has-checked:border-primary has-checked:ring-2 has-checked:ring-primary has-focus-visible:ring-2 has-focus-visible:ring-ring"
+                            >
+                              <input
+                                type="radio"
+                                name={field.name}
+                                value={estilo}
+                                checked={field.value === estilo}
+                                onChange={() => field.onChange(estilo)}
+                                className="sr-only"
+                              />
+                              <span
+                                aria-hidden
+                                className="mb-2 block h-10 rounded-md border"
+                                style={{
+                                  background: ESTILO_INFO[estilo].swatch,
+                                }}
+                              />
+                              {ESTILO_INFO[estilo].label}
+                            </label>
+                          ))}
+                        </div>
+                      </fieldset>
+                    </FormItem>
+                  )}
+                />
+              </EditorSection>
+
+              <EditorSection
+                value="marca"
+                title="Tu marca"
+                description="Tu logo y una foto de fondo"
+                locked
+              >
+                <div className="grid grid-cols-2 gap-3">
+                  {["Logo", "Foto de fondo"].map((label) => (
+                    <div
+                      key={label}
+                      className="flex flex-col items-center gap-2 rounded-lg border border-dashed p-4 text-center text-sm"
+                    >
+                      <ImageIcon className="size-5" aria-hidden />
+                      {label}
                     </div>
-                  </fieldset>
-                </FormItem>
-              )}
-            />
+                  ))}
+                </div>
+              </EditorSection>
+
+              <EditorSection
+                value="enlace"
+                title="Enlace personalizado"
+                description="clabe.club/tu-negocio"
+                locked
+              >
+                <div className="flex items-center rounded-md border text-sm">
+                  <span className="border-r bg-muted px-3 py-2 text-muted-foreground">
+                    clabe.club/
+                  </span>
+                  <span className="px-3 py-2 text-muted-foreground">
+                    tu-negocio
+                  </span>
+                </div>
+                <ul className="space-y-1.5 text-sm">
+                  {[
+                    "Un enlace corto y fácil de recordar",
+                    "Cambia tus datos sin reimprimir tu QR",
+                  ].map((benefit) => (
+                    <li key={benefit} className="flex items-center gap-2">
+                      <Check className="size-4 shrink-0" aria-hidden />
+                      {benefit}
+                    </li>
+                  ))}
+                </ul>
+              </EditorSection>
+            </Accordion>
           </form>
         </Form>
 
@@ -296,116 +381,5 @@ export default function Home() {
         </div>
       </div>
     </main>
-  );
-}
-
-function Result({ path, titulo }: { path: string; titulo?: string }) {
-  const origin = useSyncExternalStore(
-    noopSubscribe,
-    () => window.location.origin,
-    () => "",
-  );
-  const canShare = useSyncExternalStore(
-    noopSubscribe,
-    () => typeof navigator.share === "function",
-    () => false,
-  );
-  const url = `${origin}${path}`;
-  const sectionRef = useRef<HTMLElement>(null);
-  const qrRef = useRef<HTMLDivElement>(null);
-  const [copied, setCopied] = useState(false);
-
-  // On phones the result appears below the fold; bring it into view.
-  useEffect(() => {
-    sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [path]);
-
-  useEffect(() => {
-    if (!copied) return;
-    const timeout = setTimeout(() => setCopied(false), 2000);
-    return () => clearTimeout(timeout);
-  }, [copied]);
-
-  async function qrPng() {
-    const svg = qrRef.current?.querySelector("svg");
-    if (!svg) throw new Error("QR not rendered");
-    return qrToPng(svg);
-  }
-
-  async function share() {
-    const title = titulo || "Datos de pago";
-    try {
-      const file = new File([await qrPng()], QR_FILENAME, {
-        type: "image/png",
-      });
-      const withQr = { title, text: url, files: [file] };
-      await navigator.share(
-        navigator.canShare?.(withQr) ? withQr : { title, url },
-      );
-    } catch (error) {
-      // Closing the share sheet rejects with AbortError; that's fine.
-      if (!(error instanceof DOMException && error.name === "AbortError")) {
-        console.error(error);
-      }
-    }
-  }
-
-  async function copyLink() {
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-    } catch {
-      // Clipboard access can be denied; the link is still visible.
-    }
-  }
-
-  async function download() {
-    const href = URL.createObjectURL(await qrPng());
-    const link = document.createElement("a");
-    link.download = QR_FILENAME;
-    link.href = href;
-    link.click();
-    URL.revokeObjectURL(href);
-  }
-
-  return (
-    <section
-      ref={sectionRef}
-      aria-label="Tu código QR"
-      className="scroll-mt-6 flex flex-col items-center gap-4 rounded-2xl border p-6"
-    >
-      <div className="rounded-lg bg-white p-4" ref={qrRef}>
-        <QRCode value={url} size={200} />
-      </div>
-      <p className="max-w-sm text-center text-sm text-muted-foreground">
-        Este QR abre tu página de pago. Compártelo, descárgalo, imprímelo, lo
-        que quieras.
-      </p>
-      <p className="w-full truncate rounded-md bg-muted px-3 py-2 text-center font-mono text-xs">
-        {url}
-      </p>
-      <div className="grid w-full gap-2 sm:grid-cols-2">
-        {canShare && (
-          <Button onClick={share} className="sm:col-span-2">
-            <Share2 />
-            Compartir
-          </Button>
-        )}
-        <Button variant="outline" onClick={copyLink}>
-          {copied ? <Check /> : <Link2 />}
-          {copied ? "Enlace copiado" : "Copiar enlace"}
-        </Button>
-        <Button variant="outline" onClick={download}>
-          <Download />
-          Descargar QR
-        </Button>
-        <Button variant="ghost" asChild className="sm:col-span-2">
-          <a href={path} target="_blank" rel="noopener noreferrer">
-            <ExternalLink />
-            Ver página
-          </a>
-        </Button>
-      </div>
-    </section>
   );
 }

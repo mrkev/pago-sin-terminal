@@ -1,0 +1,77 @@
+import { Lock } from "lucide-react";
+
+import {
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Button } from "@/components/ui/button";
+
+/** One collapsible section of the editor. */
+export function EditorSection({
+  value,
+  title,
+  description,
+  locked = false,
+  children,
+}: {
+  value: string;
+  title: string;
+  description: string;
+  /** Needs an account; shows a badge and a sign-up prompt. */
+  locked?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <AccordionItem value={value} className="rounded-xl border last:border-b">
+      <AccordionTrigger className="items-center px-4 py-3 hover:no-underline">
+        <div className="flex flex-1 items-center justify-between gap-3">
+          <div>
+            <div className="text-base font-medium">{title}</div>
+            <div className="text-xs font-normal text-muted-foreground">
+              {description}
+            </div>
+          </div>
+          {locked && (
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-normal text-muted-foreground">
+              <Lock className="size-3" aria-hidden />
+              Con cuenta
+            </span>
+          )}
+        </div>
+      </AccordionTrigger>
+      <AccordionContent className="space-y-6 px-4 pt-2 pb-4">
+        {locked ? <LockedContent>{children}</LockedContent> : children}
+      </AccordionContent>
+    </AccordionItem>
+  );
+}
+
+/**
+ * Shows what a locked section offers, non-interactive, with a prompt to
+ * sign up or log in.
+ */
+function LockedContent({ children }: { children: React.ReactNode }) {
+  return (
+    <>
+      <div
+        inert
+        className="pointer-events-none space-y-4 opacity-60 select-none"
+      >
+        {children}
+      </div>
+      <div className="flex flex-col items-center gap-3 rounded-lg bg-muted/60 p-4 text-center sm:flex-row sm:justify-between sm:text-left">
+        <p className="text-sm">Crea una cuenta para desbloquear esto.</p>
+        <div className="flex shrink-0 gap-2">
+          {/* TODO: wire to Supabase auth. */}
+          <Button type="button" size="sm">
+            Crear cuenta
+          </Button>
+          <Button type="button" size="sm" variant="ghost">
+            Iniciar sesión
+          </Button>
+        </div>
+      </div>
+    </>
+  );
+}
