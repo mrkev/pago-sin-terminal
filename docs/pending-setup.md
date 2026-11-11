@@ -49,36 +49,3 @@ Once custom SMTP is set up:
 2. Bring back the code step in `components/auth/sign-in-dialog.tsx`. The
    working implementation is in commit `af71f56` (`verifyOtp` with
    `type: "email"`). `app/auth/callback` can then be removed.
-
-## Auth redirect URLs
-
-Sign-in links send people to `/auth/callback`. Supabase only redirects to
-URLs on its allow list; otherwise it falls back to the Site URL (`proxy.ts`
-forwards that case to the callback, but the Site URL must still be right).
-
-In **Authentication → URL Configuration**:
-
-- **Site URL:** `https://clabe.vercel.app` (it defaults to
-  `http://localhost:3000`). Update it when the real domain (e.g.
-  `clabe.club`) is set up.
-- **Redirect URLs:** add
-  - `http://localhost:3000/**` (local development)
-  - `https://clabe.vercel.app/auth/callback`
-  - `https://clabe-*-kevin-chavezs-projects.vercel.app/**` (Vercel previews)
-  - the real domain's `/auth/callback`, once there is one
-
-## Vercel: connect the GitHub repo
-
-The Vercel project is `clabe` in "Kevin Chavez's projects" (account
-`aykev`), live at https://clabe.vercel.app. Its env vars are set. It isn't
-connected to GitHub yet, so pushes to `main` don't deploy it; deploy with
-`vercel deploy --prod` until then.
-
-1. In Vercel, **Account Settings → Authentication**, add GitHub as a login
-   connection, and give the Vercel GitHub app access to
-   `mrkev/pago-sin-terminal`.
-2. Run `vercel git connect` in this repo.
-
-The old `pago-sin-terminal` project in the other Vercel account
-(kevinchavez-scalecom's projects) still deploys on every push; remove its Git
-connection or delete it once `clabe` is connected.
