@@ -78,7 +78,7 @@ export default function QRPage() {
   };
 
   // Determine if we should use the garage style
-  const isGarageStyle = decodedData?.estilo === "garage";
+  const isGarageStyle = true; //  decodedData?.estilo === "garage";
 
   console.log(decodedData);
 
@@ -88,7 +88,18 @@ export default function QRPage() {
         <link rel="stylesheet" href="/garage.css" precedence="default" />
       )}
       <div className="container mx-auto py-10">
-        {isGarageStyle && (
+        <Card className={`max-w-2xl mx-auto custom-card`}>
+          <CardHeader className="custom-header">
+            <CardTitle className="custom-title">
+              {decodedData ? decodedData.encabezado : "Detalles del Pago"}
+            </CardTitle>
+            <CardDescription className="custom-subtitle">
+              Utilice los datos en esta página para hacer su pago por
+              transferencia
+            </CardDescription>
+          </CardHeader>
+
+          {/* {isGarageStyle && (
           <div className="custom-header max-w-2xl mx-auto mb-6 text-center">
             <h1 className="custom-title">
               {decodedData?.encabezado || "Detalles del Pago"}
@@ -101,61 +112,31 @@ export default function QRPage() {
               <div className="custom-line-right"></div>
             </div>
           </div>
-        )}
-
-        <Card
-          className={`max-w-2xl mx-auto ${isGarageStyle ? "custom-card" : ""}`}
-        >
-          {!isGarageStyle && (
-            <CardHeader>
-              <CardTitle>
-                {decodedData ? decodedData.encabezado : "Detalles del Pago"}
-              </CardTitle>
-              <CardDescription>
-                Utilice los datos en esta página para hacer su pago por
-                transferencia
-              </CardDescription>
-            </CardHeader>
-          )}
+        )} */}
 
           <CardContent className={"custom-card-content"}>
             {error ? (
               <Alert variant={"destructive"} className={"custom-alert"}>
-                <AlertTitle
-                  className={isGarageStyle ? "custom-alert-title" : ""}
-                >
-                  Error
-                </AlertTitle>
+                <AlertTitle className="custom-alert-title">Error</AlertTitle>
                 <AlertDescription className={"custom-alert-description"}>
                   {error}
                 </AlertDescription>
               </Alert>
             ) : decodedData ? (
               <div className="space-y-6">
-                {isGarageStyle && (
-                  <p className="custom-subtitle">
-                    Utilice los datos en esta página para hacer su pago por
-                    transferencia
-                  </p>
-                )}
-
                 <div>
-                  {isGarageStyle ? (
-                    <div className="custom-section-header">
+                  <h3 className="custom-section-header custom-section-title text-lg font-medium mb-2">
+                    Información Bancaria
+                  </h3>
+                  <Separator className="mb-4" />
+
+                  {/* <div className="custom-section-header text-lg font-medium mb-2">
                       <div className="custom-section-line-left"></div>
                       <h3 className="custom-section-title">
                         Información Bancaria
                       </h3>
                       <div className="custom-section-line-right"></div>
-                    </div>
-                  ) : (
-                    <>
-                      <h3 className="text-lg font-medium mb-2">
-                        Información Bancaria
-                      </h3>
-                      <Separator className="mb-4" />
-                    </>
-                  )}
+                    </div> */}
 
                   <div className={`space-y-6 custom-content-section`}>
                     <div>
@@ -183,7 +164,7 @@ export default function QRPage() {
                           onClick={() =>
                             copyToClipboard(
                               decodedData.informacionBancaria.clabe,
-                              "clabe",
+                              "clabe"
                             )
                           }
                         >
@@ -216,15 +197,13 @@ export default function QRPage() {
                           variant={"default"}
                           size="icon"
                           className={
-                            isGarageStyle
-                              ? "custom-copy-button"
-                              : "h-[42px] rounded-l-none"
+                            "custom-copy-button h-[42px] rounded-l-none"
                           }
                           onClick={() =>
                             copyToClipboard(
                               decodedData.informacionBancaria
                                 .nombreBeneficiario,
-                              "nombreBeneficiario",
+                              "nombreBeneficiario"
                             )
                           }
                         >
