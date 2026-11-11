@@ -65,20 +65,24 @@ export const whatsappSchema = z
   .string()
   .regex(/^\d{10}$/, { message: WHATSAPP_MESSAGE });
 
-/** What the form collects. The bank is only required for cards. */
-export const paymentFormSchema = z
-  .object({
-    titulo: tituloSchema,
-    cuenta: cuentaSchema,
-    banco: z.string(),
-    nombre: nombreSchema,
-    // Optional: blank means no WhatsApp button.
-    whatsapp: z.string().refine((v) => v === "" || /^\d{10}$/.test(v), {
-      message: WHATSAPP_MESSAGE,
-    }),
-    estilo: estiloSchema,
-  })
-  .refine(
+/** The fields the free form collects. */
+export const paymentFormFields = {
+  titulo: tituloSchema,
+  cuenta: cuentaSchema,
+  banco: z.string(),
+  nombre: nombreSchema,
+  // Optional: blank means no WhatsApp button.
+  whatsapp: z.string().refine((v) => v === "" || /^\d{10}$/.test(v), {
+    message: WHATSAPP_MESSAGE,
+  }),
+  estilo: estiloSchema,
+};
+
+/** Adds the rule that cards (unlike CLABEs) need a bank picked. */
+export function requireBankForCards<
+  S extends z.ZodType<{ cuenta: string; banco: string }>,
+>(schema: S) {
+  return schema.refine(
     ({ cuenta, banco }) =>
       tipoCuenta(cuenta) !== "tarjeta" || isBankCode(banco),
     {
@@ -92,6 +96,12 @@ export const paymentFormSchema = z
         "banco" in value,
     },
   );
+}
+
+/** What the free form collects. The bank is only required for cards. */
+export const paymentFormSchema = requireBankForCards(
+  z.object(paymentFormFields),
+);
 
 export type PaymentForm = z.infer<typeof paymentFormSchema>;
 

@@ -1,11 +1,12 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AtSign, Check, ImageIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Check, ImageIcon, TriangleAlert } from "lucide-react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { type FieldErrors, useForm, useWatch } from "react-hook-form";
 
 import { AccountButton } from "@/components/auth/account-button";
+import { useAuth } from "@/components/auth/auth-provider";
 import { PaymentCard } from "@/components/payment-card/payment-card";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Accordion } from "@/components/ui/accordion";
@@ -24,14 +25,23 @@ import { BANKS } from "@/lib/banks";
 import { COMMON_BANK_CODES, cuentaBankName, tipoCuenta } from "@/lib/cuenta";
 import { DEFAULT_ESTILO, ESTILOS, ESTILO_INFO } from "@/lib/estilos";
 import {
-  type PaymentForm,
   formToLink,
   paymentFormSchema,
   paymentPagePath,
 } from "@/lib/payment-page";
+import {
+  EMPTY_EDITOR_FORM,
+  type EditorForm,
+  anonEditorSchema,
+  editorSnapshot,
+  savedPageFormSchema,
+} from "@/lib/saved-page";
+import { suggestSlug, toSlugInput } from "@/lib/slug";
+import { SOCIALS, SOCIAL_INFO, normalizeHandle } from "@/lib/socials";
 import { cn } from "@/lib/utils";
 import { normalizeMxPhone } from "@/lib/whatsapp";
 
+import { savePage } from "./actions";
 import { EditorSection } from "./editor-section";
 import { Result } from "./result";
 
@@ -39,24 +49,15 @@ const ALL_BANKS = Object.entries(BANKS).sort(([, a], [, b]) =>
   a.localeCompare(b, "es"),
 );
 
-const EMPTY_FORM: PaymentForm = {
-  titulo: "",
-  cuenta: "",
-  banco: "",
-  nombre: "",
-  whatsapp: "",
-  estilo: DEFAULT_ESTILO,
-};
-
 const DRAFT_KEY = "clabe-club:draft";
 
-function loadDraft(): PaymentForm | null {
+function loadDraft(): EditorForm | null {
   try {
     const raw = JSON.parse(localStorage.getItem(DRAFT_KEY) ?? "null");
     if (!raw || typeof raw !== "object") return null;
     // Only take known string fields; ignore anything else stored there.
-    const draft = { ...EMPTY_FORM };
-    for (const key of Object.keys(EMPTY_FORM) as (keyof PaymentForm)[]) {
+    const draft = { ...EMPTY_EDITOR_FORM };
+    for (const key of Object.keys(EMPTY_EDITOR_FORM) as (keyof EditorForm)[]) {
       if (typeof raw[key] === "string")
         Object.assign(draft, { [key]: raw[key] });
     }
@@ -68,7 +69,7 @@ function loadDraft(): PaymentForm | null {
   }
 }
 
-function saveDraft(values: Partial<PaymentForm>) {
+function saveDraft(values: Partial<EditorForm>) {
   try {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(values));
   } catch {
@@ -79,22 +80,61 @@ function saveDraft(values: Partial<PaymentForm>) {
 /** Sections open by default: everything that works without an account. */
 const DEFAULT_OPEN_SECTIONS = ["datos", "estilo"];
 
-/** The page editor: everything on the home page. */
-export function Editor() {
-  const form = useForm<PaymentForm>({
-    resolver: zodResolver(paymentFormSchema),
-    defaultValues: EMPTY_FORM,
+/** Which section each field lives in, to open it when it has an error. */
+const FIELD_SECTION: Record<keyof EditorForm, string> = {
+  titulo: "datos",
+  cuenta: "datos",
+  banco: "datos",
+  nombre: "datos",
+  estilo: "estilo",
+  whatsapp: "comprobante",
+  instagram: "redes",
+  tiktok: "redes",
+  facebook: "redes",
+  slug: "enlace",
+};
+
+const noopSubscribe = () => () => {};
+
+/**
+ * The page editor: everything on the home page. Signed out, it builds a
+ * free link that carries the data. Signed in, it saves the page to the
+ * account, served at a short link.
+ */
+export function Editor({ savedPage }: { savedPage: EditorForm | null }) {
+  const { user } = useAuth();
+  const form = useForm<EditorForm>({
+    resolver: zodResolver(user ? savedPageFormSchema : anonEditorSchema),
+    defaultValues: savedPage ?? EMPTY_EDITOR_FORM,
   });
   const values = useWatch({ control: form.control });
 
   // Keep a draft in this browser so nothing is lost when, for example, a
   // sign-in link opens the editor in a new tab. Restore runs first, before
-  // the save below overwrites the stored draft.
+  // the save below overwrites the stored draft. A saved page wins.
   useEffect(() => {
+    if (savedPage) return;
     const draft = loadDraft();
     if (draft) form.reset(draft);
-  }, [form]);
+  }, [form, savedPage]);
   useEffect(() => saveDraft(values), [values]);
+
+  const host = useSyncExternalStore(
+    noopSubscribe,
+    () => window.location.host,
+    () => "clabe.vercel.app",
+  );
+
+  // Signed in: what's saved, and whether the form has changed since.
+  const [saved, setSaved] = useState(
+    savedPage
+      ? { slug: savedPage.slug, snapshot: editorSnapshot(savedPage) }
+      : null,
+  );
+  const [justSaved, setJustSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const hasUnsavedChanges =
+    saved !== null && editorSnapshot(values) !== saved.snapshot;
   const cuenta = values.cuenta ?? "";
   const tipo = tipoCuenta(cuenta);
   const bank = cuentaBankName(cuenta, values.banco);
@@ -109,20 +149,37 @@ export function Editor() {
   const [generatedPath, setGeneratedPath] = useState<string | null>(null);
   const showResult = generatedPath !== null && generatedPath === currentPath;
 
-  const [openSections, setOpenSections] = useState(DEFAULT_OPEN_SECTIONS);
+  const [openSections, setOpenSections] = useState(
+    user ? [...DEFAULT_OPEN_SECTIONS, "enlace"] : DEFAULT_OPEN_SECTIONS,
+  );
 
-  function onSubmit(data: PaymentForm) {
-    setGeneratedPath(paymentPagePath(formToLink(data)));
+  function openSectionsFor(fields: (keyof EditorForm)[]) {
+    const sections = fields.map((field) => FIELD_SECTION[field]);
+    setOpenSections((open) => [...new Set([...open, ...sections])]);
+    if (fields[0]) requestAnimationFrame(() => form.setFocus(fields[0]));
+  }
+
+  async function onSubmit(data: EditorForm) {
+    if (!user) {
+      setGeneratedPath(paymentPagePath(formToLink(data)));
+      return;
+    }
+    setSaveError(null);
+    const result = await savePage(data);
+    if (result.ok) {
+      setSaved({ slug: result.slug, snapshot: editorSnapshot(data) });
+      setJustSaved(true);
+    } else if (result.field) {
+      form.setError(result.field, { message: result.message });
+      openSectionsFor([result.field]);
+    } else {
+      setSaveError(result.message);
+    }
   }
 
   // Errors can be in a collapsed section: open it and focus the field.
-  function onInvalid(errors: FieldErrors<PaymentForm>) {
-    const withErrors = Object.keys(errors).map((field) =>
-      field === "whatsapp" ? "comprobante" : "datos",
-    );
-    setOpenSections((open) => [...new Set([...open, ...withErrors])]);
-    const first = Object.keys(errors)[0] as keyof PaymentForm | undefined;
-    if (first) requestAnimationFrame(() => form.setFocus(first));
+  function onInvalid(errors: FieldErrors<EditorForm>) {
+    openSectionsFor(Object.keys(errors) as (keyof EditorForm)[]);
   }
 
   function fillExampleData() {
@@ -397,38 +454,106 @@ export function Editor() {
                 value="redes"
                 title="Redes sociales"
                 description="Instagram, TikTok, Facebook"
-                locked
+                locked={!user}
+                optional={!!user}
               >
-                {["Instagram", "TikTok", "Facebook"].map((red) => (
-                  <div
-                    key={red}
-                    className="flex items-center rounded-md border text-sm"
-                  >
-                    <span className="w-28 border-r bg-muted px-3 py-2 text-muted-foreground">
-                      {red}
-                    </span>
-                    <span className="flex items-center gap-1 px-3 py-2 text-muted-foreground">
-                      <AtSign className="size-3.5" aria-hidden />
-                      tu-negocio
-                    </span>
-                  </div>
+                {SOCIALS.map((social) => (
+                  <FormField
+                    key={social}
+                    control={form.control}
+                    name={social}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{SOCIAL_INFO[social].label}</FormLabel>
+                        <FormControl>
+                          <div className="flex items-center rounded-md border border-input focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
+                            <span className="pl-3 text-muted-foreground">
+                              @
+                            </span>
+                            <Input
+                              placeholder="tu-negocio"
+                              autoComplete="off"
+                              autoCapitalize="none"
+                              className="border-0 pl-1 focus-visible:ring-0 focus-visible:ring-offset-0"
+                              {...field}
+                              // Accept "@handle" or a pasted profile URL.
+                              onChange={(e) =>
+                                field.onChange(normalizeHandle(e.target.value))
+                              }
+                            />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 ))}
               </EditorSection>
 
               <EditorSection
                 value="enlace"
                 title="Enlace personalizado"
-                description="clabe.club/tu-negocio"
-                locked
+                description={`${host}/${values.slug || "tu-negocio"}`}
+                locked={!user}
               >
-                <div className="flex items-center rounded-md border text-sm">
-                  <span className="border-r bg-muted px-3 py-2 text-muted-foreground">
-                    clabe.club/
-                  </span>
-                  <span className="px-3 py-2 text-muted-foreground">
-                    tu-negocio
-                  </span>
-                </div>
+                <FormField
+                  control={form.control}
+                  name="slug"
+                  render={({ field }) => {
+                    const suggestion = suggestSlug(values.titulo ?? "");
+                    const changingSavedLink =
+                      saved !== null && field.value !== saved.slug;
+                    return (
+                      <FormItem>
+                        <FormLabel>Tu enlace</FormLabel>
+                        <FormControl>
+                          <div className="flex items-center rounded-md border border-input focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
+                            <span className="shrink-0 pl-3 text-sm text-muted-foreground">
+                              {host}/
+                            </span>
+                            <Input
+                              placeholder="tu-negocio"
+                              autoComplete="off"
+                              autoCapitalize="none"
+                              maxLength={30}
+                              className="min-w-0 border-0 pl-0.5 focus-visible:ring-0 focus-visible:ring-offset-0"
+                              {...field}
+                              onChange={(e) =>
+                                field.onChange(toSlugInput(e.target.value))
+                              }
+                            />
+                          </div>
+                        </FormControl>
+                        {!field.value && suggestion.length >= 3 && (
+                          <Button
+                            type="button"
+                            variant="link"
+                            size="sm"
+                            className="h-auto px-0"
+                            onClick={() =>
+                              form.setValue("slug", suggestion, {
+                                shouldValidate: true,
+                              })
+                            }
+                          >
+                            Usar {host}/{suggestion}
+                          </Button>
+                        )}
+                        {changingSavedLink && (
+                          <p className="flex items-start gap-2 text-sm text-amber-600 dark:text-amber-400">
+                            <TriangleAlert
+                              className="mt-0.5 size-4 shrink-0"
+                              aria-hidden
+                            />
+                            Si cambias tu enlace, los QR que ya compartiste o
+                            imprimiste dejarán de funcionar.
+                          </p>
+                        )}
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
+                />
                 <ul className="space-y-1.5 text-sm">
                   {[
                     "Un enlace corto y fácil de recordar",
@@ -465,6 +590,15 @@ export function Editor() {
                   : undefined
               }
               estilo={values.estilo}
+              socials={
+                user
+                  ? {
+                      instagram: values.instagram,
+                      tiktok: values.tiktok,
+                      facebook: values.facebook,
+                    }
+                  : undefined
+              }
             />
           </div>
         </section>
@@ -475,10 +609,38 @@ export function Editor() {
             form="payment-form"
             className="w-full"
             size="lg"
+            disabled={form.formState.isSubmitting}
           >
-            Generar código QR
+            {!user
+              ? "Generar código QR"
+              : form.formState.isSubmitting
+                ? "Guardando…"
+                : saved && !hasUnsavedChanges
+                  ? "Guardado"
+                  : saved
+                    ? "Guardar cambios"
+                    : "Guardar mi página"}
           </Button>
-          {showResult && <Result path={generatedPath} titulo={values.titulo} />}
+          {saveError && (
+            <p className="text-center text-sm text-destructive">{saveError}</p>
+          )}
+          {user && hasUnsavedChanges && (
+            <p className="text-center text-sm text-muted-foreground">
+              Tienes cambios sin guardar
+            </p>
+          )}
+          {user
+            ? saved && (
+                <Result
+                  path={`/${saved.slug}`}
+                  titulo={values.titulo}
+                  autoScroll={justSaved}
+                  description="Este QR abre tu página. Puedes cambiar tus datos cuando quieras: el QR sigue funcionando."
+                />
+              )
+            : showResult && (
+                <Result path={generatedPath} titulo={values.titulo} />
+              )}
         </div>
       </div>
     </main>

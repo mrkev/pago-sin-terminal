@@ -8,6 +8,7 @@ import {
   tipoCuenta,
 } from "@/lib/cuenta";
 import { DEFAULT_ESTILO, type Estilo } from "@/lib/estilos";
+import { SOCIALS, SOCIAL_INFO, type Social } from "@/lib/socials";
 import { comprobanteMessage, whatsappLink } from "@/lib/whatsapp";
 
 import { CopyButton } from "./copy-button";
@@ -22,6 +23,8 @@ export type PaymentCardProps = {
   banco?: string;
   /** 10-digit number; adds a button to send the receipt over WhatsApp. */
   whatsapp?: string;
+  /** Social handles (accounts only), shown as links under the details. */
+  socials?: Partial<Record<Social, string>>;
   estilo?: Estilo;
   /** `page` fills the screen; `preview` is a framed box for the editor. */
   variant?: "page" | "preview";
@@ -34,6 +37,7 @@ export function PaymentCard({
   nombre,
   banco,
   whatsapp,
+  socials,
   estilo = DEFAULT_ESTILO,
   variant = "page",
 }: PaymentCardProps) {
@@ -73,6 +77,25 @@ export function PaymentCard({
             <MessageCircle aria-hidden />
             Enviar comprobante por WhatsApp
           </a>
+        )}
+
+        {socials && SOCIALS.some((s) => socials[s]) && (
+          <nav className="pc-socials" aria-label="Redes sociales">
+            {SOCIALS.filter((s) => socials[s]).map((s) => (
+              <a
+                key={s}
+                className="pc-social"
+                href={SOCIAL_INFO[s].url(socials[s]!)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <span className="pc-social-network">
+                  {SOCIAL_INFO[s].label}
+                </span>
+                <span>@{socials[s]}</span>
+              </a>
+            ))}
+          </nav>
         )}
       </div>
     </div>

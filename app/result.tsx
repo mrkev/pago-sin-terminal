@@ -13,7 +13,18 @@ const QR_FILENAME = "clabe-club-qr.png";
 const noopSubscribe = () => () => {};
 
 /** The generated QR with ways to share it. */
-export function Result({ path, titulo }: { path: string; titulo?: string }) {
+export function Result({
+  path,
+  titulo,
+  autoScroll = true,
+  description = "Este QR abre tu página de pago. Compártelo, descárgalo, imprímelo, lo que quieras.",
+}: {
+  path: string;
+  titulo?: string;
+  /** Scroll into view when shown (e.g. right after generating). */
+  autoScroll?: boolean;
+  description?: string;
+}) {
   const origin = useSyncExternalStore(
     noopSubscribe,
     () => window.location.origin,
@@ -31,8 +42,9 @@ export function Result({ path, titulo }: { path: string; titulo?: string }) {
 
   // On phones the result appears below the fold; bring it into view.
   useEffect(() => {
+    if (!autoScroll) return;
     sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [path]);
+  }, [path, autoScroll]);
 
   useEffect(() => {
     if (!copied) return;
@@ -92,8 +104,7 @@ export function Result({ path, titulo }: { path: string; titulo?: string }) {
         <QRCode value={url} size={200} />
       </div>
       <p className="max-w-sm text-center text-sm text-muted-foreground">
-        Este QR abre tu página de pago. Compártelo, descárgalo, imprímelo, lo
-        que quieras.
+        {description}
       </p>
       <p className="w-full truncate rounded-md bg-muted px-3 py-2 text-center font-mono text-xs">
         {url}
