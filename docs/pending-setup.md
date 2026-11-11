@@ -59,6 +59,24 @@ forwards that case to the callback, but the Site URL must still be right).
 In **Authentication → URL Configuration**:
 
 - **Site URL:** the production URL (it defaults to `http://localhost:3000`).
-- **Redirect URLs:** add `http://localhost:3000/**`, the production
-  `https://<domain>/auth/callback`, and Vercel previews
-  (`https://*-<team-slug>.vercel.app/**`).
+  Today that's `https://pago-sin-terminal-kevinchavez-scalecoms-projects.vercel.app`;
+  update it when the real domain (e.g. `clabe.club`) is set up.
+- **Redirect URLs:** add
+  - `http://localhost:3000/**` (local development)
+  - `https://pago-sin-terminal-kevinchavez-scalecoms-projects.vercel.app/auth/callback`
+  - `https://*-kevinchavez-scalecoms-projects.vercel.app/**` (Vercel previews)
+  - the real domain's `/auth/callback`, once there is one
+
+## Vercel environment variables
+
+The Vercel project (`pago-sin-terminal`, team
+`kevinchavez-scalecoms-projects`) needs the same values as `.env.local`, for
+Production, Preview and Development. Without them the site still works, but
+accounts are unavailable.
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+
+`NEXT_PUBLIC_` values are baked in at build time, so redeploy after adding
+them. (Claude's Vercel connector couldn't set these: it lacks permission to
+read or write project env vars.)
