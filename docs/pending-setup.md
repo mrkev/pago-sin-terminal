@@ -49,3 +49,10 @@ Once custom SMTP is set up:
 2. Bring back the code step in `components/auth/sign-in-dialog.tsx`. The
    working implementation is in commit `af71f56` (`verifyOtp` with
    `type: "email"`). `app/auth/callback` can then be removed.
+
+## When moving to a real domain (e.g. clabe.club)
+
+Supabase's **Authentication → URL Configuration** currently allows
+`https://clabe.vercel.app`. When adding a custom domain in Vercel, update the
+**Site URL** to it and add its `/auth/callback` to **Redirect URLs**, or
+sign-in links on the new domain will fail.
