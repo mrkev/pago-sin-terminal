@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AtSign, Check, ImageIcon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { type FieldErrors, useForm, useWatch } from "react-hook-form";
 
 import { AccountButton } from "@/components/auth/account-button";
@@ -39,6 +39,43 @@ const ALL_BANKS = Object.entries(BANKS).sort(([, a], [, b]) =>
   a.localeCompare(b, "es"),
 );
 
+const EMPTY_FORM: PaymentForm = {
+  titulo: "",
+  cuenta: "",
+  banco: "",
+  nombre: "",
+  whatsapp: "",
+  estilo: DEFAULT_ESTILO,
+};
+
+const DRAFT_KEY = "clabe-club:draft";
+
+function loadDraft(): PaymentForm | null {
+  try {
+    const raw = JSON.parse(localStorage.getItem(DRAFT_KEY) ?? "null");
+    if (!raw || typeof raw !== "object") return null;
+    // Only take known string fields; ignore anything else stored there.
+    const draft = { ...EMPTY_FORM };
+    for (const key of Object.keys(EMPTY_FORM) as (keyof PaymentForm)[]) {
+      if (typeof raw[key] === "string")
+        Object.assign(draft, { [key]: raw[key] });
+    }
+    if (!ESTILOS.includes(draft.estilo)) draft.estilo = DEFAULT_ESTILO;
+    return draft;
+  } catch {
+    // Storage can be unavailable (private mode, blocked site data).
+    return null;
+  }
+}
+
+function saveDraft(values: Partial<PaymentForm>) {
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(values));
+  } catch {
+    // Same as above: a draft is a convenience, not a requirement.
+  }
+}
+
 /** Sections open by default: everything that works without an account. */
 const DEFAULT_OPEN_SECTIONS = ["datos", "estilo"];
 
@@ -46,16 +83,18 @@ const DEFAULT_OPEN_SECTIONS = ["datos", "estilo"];
 export function Editor() {
   const form = useForm<PaymentForm>({
     resolver: zodResolver(paymentFormSchema),
-    defaultValues: {
-      titulo: "",
-      cuenta: "",
-      banco: "",
-      nombre: "",
-      whatsapp: "",
-      estilo: DEFAULT_ESTILO,
-    },
+    defaultValues: EMPTY_FORM,
   });
   const values = useWatch({ control: form.control });
+
+  // Keep a draft in this browser so nothing is lost when, for example, a
+  // sign-in link opens the editor in a new tab. Restore runs first, before
+  // the save below overwrites the stored draft.
+  useEffect(() => {
+    const draft = loadDraft();
+    if (draft) form.reset(draft);
+  }, [form]);
+  useEffect(() => saveDraft(values), [values]);
   const cuenta = values.cuenta ?? "";
   const tipo = tipoCuenta(cuenta);
   const bank = cuentaBankName(cuenta, values.banco);

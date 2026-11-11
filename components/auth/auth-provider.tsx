@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
 
@@ -17,22 +17,38 @@ type Auth = {
 
 const AuthContext = createContext<Auth | null>(null);
 
+const LINK_ERROR =
+  "Ese enlace ya no funciona: venció, ya se usó o se abrió en otro navegador. Pide uno nuevo.";
+
 /**
  * Makes the signed-in user (read on the server) available to the editor and
  * lets any component open the sign-in dialog.
  */
 export function AuthProvider({
   user,
+  linkFailed = false,
   children,
 }: {
   user: User | null;
+  /** The user arrived from a sign-in link that didn't work. */
+  linkFailed?: boolean;
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const [dialog, setDialog] = useState<{ open: boolean; mode: SignInMode }>({
-    open: false,
-    mode: "login",
-  });
+  const [dialog, setDialog] = useState<{
+    open: boolean;
+    mode: SignInMode;
+    error?: string;
+  }>(
+    linkFailed
+      ? { open: true, mode: "login", error: LINK_ERROR }
+      : { open: false, mode: "login" },
+  );
+
+  // Drop ?auth_error from the address bar so a reload doesn't repeat it.
+  useEffect(() => {
+    if (linkFailed) router.replace("/", { scroll: false });
+  }, [linkFailed, router]);
 
   const auth: Auth = {
     user,
@@ -49,9 +65,8 @@ export function AuthProvider({
       <SignInDialog
         open={dialog.open}
         mode={dialog.mode}
+        error={dialog.error}
         onOpenChange={(open) => setDialog((d) => ({ ...d, open }))}
-        // Re-render server components with the new session.
-        onSignedIn={() => router.refresh()}
       />
     </AuthContext.Provider>
   );

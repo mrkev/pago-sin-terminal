@@ -17,6 +17,17 @@ export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
   if (!isSupabaseConfigured) return response;
 
+  // If our callback URL isn't on Supabase's redirect allow list, sign-in
+  // links land on the Site URL ("/") instead. Send them to the callback.
+  if (
+    request.nextUrl.pathname === "/" &&
+    request.nextUrl.searchParams.has("code")
+  ) {
+    const callback = request.nextUrl.clone();
+    callback.pathname = "/auth/callback";
+    return NextResponse.redirect(callback);
+  }
+
   const supabase = createServerClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     cookies: {
       getAll() {
