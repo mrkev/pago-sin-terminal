@@ -30,7 +30,7 @@ function decodeData(base64String: string | null): {
   if (!base64String) {
     return {
       decodedData: null,
-      error: "No se proporcionó ningún código para decodificar",
+      error: "Este enlace no incluye ninguna CLABE.",
     };
   }
 
@@ -42,7 +42,7 @@ function decodeData(base64String: string | null): {
     console.error(err);
     return {
       decodedData: null,
-      error: "Error al decodificar los datos. El formato no es válido.",
+      error: "No pudimos leer los datos de este enlace.",
     };
   }
 }
@@ -99,18 +99,17 @@ export default function QRPage() {
         <Card className={`max-w-2xl mx-auto custom-card`}>
           <CardHeader className="custom-header">
             <CardTitle className="custom-title">
-              {decodedData ? decodedData.encabezado : "Detalles del Pago"}
+              {decodedData ? decodedData.encabezado : "Datos de pago"}
             </CardTitle>
             <CardDescription className="custom-subtitle">
-              Utilice los datos en esta página para hacer su pago por
-              transferencia
+              Usa estos datos para pagar por transferencia
             </CardDescription>
           </CardHeader>
 
           {/* {isGarageStyle && (
           <div className="custom-header max-w-2xl mx-auto mb-6 text-center">
             <h1 className="custom-title">
-              {decodedData?.encabezado || "Detalles del Pago"}
+              {decodedData?.encabezado || "Datos de pago"}
             </h1>
             <div className="custom-title-decoration">
               <div className="custom-line-left"></div>

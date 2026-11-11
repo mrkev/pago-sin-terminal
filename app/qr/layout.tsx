@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Detalles de Pago",
+  title: "Datos de pago",
 };
 
 export default function QRLayout({

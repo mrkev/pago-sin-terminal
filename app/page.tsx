@@ -27,6 +27,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Download, FileText } from "lucide-react";
 
 const formSchema = z.object({
@@ -113,7 +114,7 @@ export default function Home() {
 
       // Create download link
       const link = document.createElement("a");
-      link.download = "qr-code.png";
+      link.download = "clabe-club-qr.png";
       link.href = canvas.toDataURL("image/png");
       link.click();
     };
@@ -122,15 +123,17 @@ export default function Home() {
   };
 
   return (
-    <div className="container mx-auto py-10">
+    <div className="container mx-auto px-4 py-10">
+      <div className="max-w-2xl mx-auto mb-4 flex justify-end">
+        <ThemeToggle />
+      </div>
       <Card className="max-w-2xl mx-auto">
         <CardHeader>
           <div className="flex justify-between items-center">
             <div>
-              <CardTitle>Pago Sin Terminal</CardTitle>
+              <CardTitle>CLABE.club</CardTitle>
               <CardDescription>
-                Ingrese la información requerida para generar el código QR de
-                pago
+                Ingresa la información que incluirá la página de tu CLABE
               </CardDescription>
             </div>
             <Button
@@ -154,11 +157,11 @@ export default function Home() {
                   <FormItem>
                     <FormLabel>Encabezado</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ingrese el encabezado" {...field} />
+                      <Input placeholder="Ej. Café Ejemplar" {...field} />
                     </FormControl>
                     <FormDescription>
-                      Puede ser el nombre de su negocio, o cualquier título que
-                      guste
+                      Puede ser el nombre de tu negocio o cualquier título que
+                      quieras
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -180,13 +183,13 @@ export default function Home() {
                         <FormLabel>CLABE</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder="Ingrese los 18 dígitos de la CLABE"
+                            placeholder="Los 18 dígitos de tu CLABE"
                             maxLength={18}
                             {...field}
                           />
                         </FormControl>
                         <FormDescription>
-                          Debe contener exactamente 18 dígitos numéricos
+                          Exactamente 18 dígitos, solo números
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -201,7 +204,7 @@ export default function Home() {
                         <FormLabel>Nombre del Beneficiario</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder="Ingrese el nombre del beneficiario"
+                            placeholder="Como aparece en tu banco"
                             maxLength={80}
                             {...field}
                           />
@@ -256,7 +259,7 @@ export default function Home() {
               </div>
 
               <Button type="submit" className="w-full">
-                Generar Código QR
+                Generar código QR
               </Button>
             </form>
           </Form>
@@ -270,8 +273,8 @@ export default function Home() {
             </div>
             <div className="mt-4 flex flex-col items-center gap-2">
               <p className="text-sm text-muted-foreground text-center max-w-md">
-                Utilice este código QR para compartir sus detalles de pago.
-                Descárguelo, mándelo, imprímalo, etc.
+                Este QR abre la página de tu CLABE. Descárgalo, mándalo,
+                imprímelo, lo que quieras.
               </p>
               <div className="flex gap-4 mt-2">
                 <a
@@ -280,7 +283,7 @@ export default function Home() {
                   rel="noopener noreferrer"
                   className="text-primary hover:underline text-sm flex items-center"
                 >
-                  Vista Previa
+                  Ver página
                 </a>
                 <Button
                   variant="outline"
