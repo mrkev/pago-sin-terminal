@@ -56,7 +56,13 @@ describe("paymentPagePath", () => {
         nombre: "José Peña Núñez S.A. de C.V.",
         estilo: "elegante" as const,
       },
-      { cuenta: CARD, titulo: "Chaneque", nombre: "Ana", banco: "014" },
+      {
+        cuenta: CARD,
+        titulo: "Chaneque",
+        nombre: "Ana",
+        banco: "014",
+        whatsapp: "5512345678",
+      },
     ];
     for (const page of pages) {
       const result = parsePath(paymentPagePath(page));
@@ -91,6 +97,7 @@ describe("parsePaymentPage", () => {
 
   it("rejects present-but-invalid params instead of dropping them", () => {
     expect(parsePaymentPage(CLABE, { n: "Ana 🌮" }).success).toBe(false);
+    expect(parsePaymentPage(CLABE, { w: "551234" }).success).toBe(false);
     expect(parsePaymentPage(CARD, { b: "999" }).success).toBe(false);
   });
 
@@ -131,6 +138,7 @@ describe("paymentFormSchema", () => {
     cuenta: CARD,
     banco: "",
     nombre: "Ana",
+    whatsapp: "",
     estilo: "neutral" as const,
   };
 
@@ -155,5 +163,17 @@ describe("paymentFormSchema", () => {
     const result = paymentFormSchema.safeParse({ ...form, cuenta: CLABE });
     expect(result.success).toBe(true);
     expect(formToLink(result.data!).banco).toBeUndefined();
+  });
+
+  it("treats WhatsApp as optional but validates it when given", () => {
+    const base = { ...form, cuenta: CLABE };
+    expect(formToLink(paymentFormSchema.parse(base)).whatsapp).toBeUndefined();
+    expect(
+      formToLink(paymentFormSchema.parse({ ...base, whatsapp: "5512345678" }))
+        .whatsapp,
+    ).toBe("5512345678");
+    expect(
+      paymentFormSchema.safeParse({ ...base, whatsapp: "551234" }).success,
+    ).toBe(false);
   });
 });

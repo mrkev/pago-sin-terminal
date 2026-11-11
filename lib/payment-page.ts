@@ -8,11 +8,12 @@ import { DEFAULT_ESTILO, ESTILOS } from "./estilos";
 /**
  * A payment page lives at
  *
- *   /c/<cuenta>?t=<título>&n=<nombre>&b=<banco>&s=<estilo>
+ *   /c/<cuenta>?t=<título>&n=<nombre>&b=<banco>&w=<whatsapp>&s=<estilo>
  *
  * where <cuenta> is an 18-digit CLABE or a 16-digit debit card, <banco> is
- * a 3-digit bank code (only used for cards; a CLABE encodes its bank), and
- * <estilo> is a style preset. All params are optional. This URL is what
+ * a 3-digit bank code (only used for cards; a CLABE encodes its bank),
+ * <whatsapp> is a 10-digit Mexican number for receipts, and <estilo> is a
+ * style preset. All params are optional. This URL is what
  * gets encoded in printed QR codes, so treat its shape as a public format.
  */
 
@@ -58,6 +59,12 @@ export const bancoSchema = z
 
 export const estiloSchema = z.enum(ESTILOS);
 
+const WHATSAPP_MESSAGE = "Ingresa un número de 10 dígitos";
+
+export const whatsappSchema = z
+  .string()
+  .regex(/^\d{10}$/, { message: WHATSAPP_MESSAGE });
+
 /** What the form collects. The bank is only required for cards. */
 export const paymentFormSchema = z
   .object({
@@ -65,6 +72,10 @@ export const paymentFormSchema = z
     cuenta: cuentaSchema,
     banco: z.string(),
     nombre: nombreSchema,
+    // Optional: blank means no WhatsApp button.
+    whatsapp: z.string().refine((v) => v === "" || /^\d{10}$/.test(v), {
+      message: WHATSAPP_MESSAGE,
+    }),
     estilo: estiloSchema,
   })
   .refine(
@@ -98,6 +109,7 @@ export const paymentLinkSchema = z.object({
   titulo: optional(tituloSchema),
   nombre: optional(nombreSchema),
   banco: optional(bancoSchema),
+  whatsapp: optional(whatsappSchema),
   // An unknown style is cosmetic, so fall back instead of failing.
   estilo: estiloSchema.optional().catch(undefined),
 });
@@ -111,6 +123,7 @@ export function formToLink(form: PaymentForm): PaymentLink {
     titulo: form.titulo,
     nombre: form.nombre,
     banco: tipoCuenta(form.cuenta) === "tarjeta" ? form.banco : undefined,
+    whatsapp: form.whatsapp || undefined,
     estilo: form.estilo,
   };
 }
@@ -121,6 +134,7 @@ export function paymentPagePath({
   titulo,
   nombre,
   banco,
+  whatsapp,
   estilo,
 }: PaymentLink): string {
   const params = new URLSearchParams();
@@ -128,6 +142,7 @@ export function paymentPagePath({
   if (nombre) params.set("n", nombre);
   // A CLABE already says which bank it belongs to.
   if (banco && tipoCuenta(cuenta) === "tarjeta") params.set("b", banco);
+  if (whatsapp) params.set("w", whatsapp);
   if (estilo && estilo !== DEFAULT_ESTILO) params.set("s", estilo);
   const query = params.toString();
   return `/c/${cuenta}${query ? `?${query}` : ""}`;
@@ -145,6 +160,7 @@ export function parsePaymentPage(cuenta: string, searchParams: SearchParams) {
     titulo: first(searchParams.t),
     nombre: first(searchParams.n),
     banco: first(searchParams.b),
+    whatsapp: first(searchParams.w),
     estilo: first(searchParams.s),
   });
 }

@@ -13,6 +13,7 @@ export function EditorSection({
   title,
   description,
   locked = false,
+  optional = false,
   children,
 }: {
   value: string;
@@ -20,6 +21,8 @@ export function EditorSection({
   description: string;
   /** Needs an account; shows a badge and a sign-up prompt. */
   locked?: boolean;
+  /** Free but not needed; shows an "Opcional" badge. */
+  optional?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -32,6 +35,11 @@ export function EditorSection({
               {description}
             </div>
           </div>
+          {optional && !locked && (
+            <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-normal text-muted-foreground">
+              Opcional
+            </span>
+          )}
           {locked && (
             <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-normal text-muted-foreground">
               <Lock className="size-3" aria-hidden />

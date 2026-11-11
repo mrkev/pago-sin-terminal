@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Check, ImageIcon } from "lucide-react";
+import { AtSign, Check, ImageIcon } from "lucide-react";
 import { useState } from "react";
 import { type FieldErrors, useForm, useWatch } from "react-hook-form";
 
@@ -29,6 +29,7 @@ import {
   paymentPagePath,
 } from "@/lib/payment-page";
 import { cn } from "@/lib/utils";
+import { normalizeMxPhone } from "@/lib/whatsapp";
 
 import { EditorSection } from "./editor-section";
 import { Result } from "./result";
@@ -48,6 +49,7 @@ export default function Home() {
       cuenta: "",
       banco: "",
       nombre: "",
+      whatsapp: "",
       estilo: DEFAULT_ESTILO,
     },
   });
@@ -74,9 +76,10 @@ export default function Home() {
 
   // Errors can be in a collapsed section: open it and focus the field.
   function onInvalid(errors: FieldErrors<PaymentForm>) {
-    setOpenSections((open) =>
-      open.includes("datos") ? open : [...open, "datos"],
+    const withErrors = Object.keys(errors).map((field) =>
+      field === "whatsapp" ? "comprobante" : "datos",
     );
+    setOpenSections((open) => [...new Set([...open, ...withErrors])]);
     const first = Object.keys(errors)[0] as keyof PaymentForm | undefined;
     if (first) requestAnimationFrame(() => form.setFocus(first));
   }
@@ -301,6 +304,39 @@ export default function Home() {
               </EditorSection>
 
               <EditorSection
+                value="comprobante"
+                title="Comprobante por WhatsApp"
+                description="Recibe los comprobantes de pago en tu WhatsApp"
+                optional
+              >
+                <FormField
+                  control={form.control}
+                  name="whatsapp"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tu WhatsApp</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="10 dígitos"
+                          inputMode="tel"
+                          autoComplete="tel-national"
+                          {...field}
+                          onChange={(e) =>
+                            field.onChange(normalizeMxPhone(e.target.value))
+                          }
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Tu página tendrá un botón para que quien te pague te
+                        mande su comprobante
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </EditorSection>
+
+              <EditorSection
                 value="marca"
                 title="Tu marca"
                 description="Tu logo y una foto de fondo"
@@ -317,6 +353,28 @@ export default function Home() {
                     </div>
                   ))}
                 </div>
+              </EditorSection>
+
+              <EditorSection
+                value="redes"
+                title="Redes sociales"
+                description="Instagram, TikTok, Facebook"
+                locked
+              >
+                {["Instagram", "TikTok", "Facebook"].map((red) => (
+                  <div
+                    key={red}
+                    className="flex items-center rounded-md border text-sm"
+                  >
+                    <span className="w-28 border-r bg-muted px-3 py-2 text-muted-foreground">
+                      {red}
+                    </span>
+                    <span className="flex items-center gap-1 px-3 py-2 text-muted-foreground">
+                      <AtSign className="size-3.5" aria-hidden />
+                      tu-negocio
+                    </span>
+                  </div>
+                ))}
               </EditorSection>
 
               <EditorSection
@@ -363,6 +421,11 @@ export default function Home() {
               titulo={values.titulo || "Tu negocio"}
               nombre={values.nombre || "Tu nombre"}
               banco={values.banco}
+              whatsapp={
+                /^\d{10}$/.test(values.whatsapp ?? "")
+                  ? values.whatsapp
+                  : undefined
+              }
               estilo={values.estilo}
             />
           </div>

@@ -1,3 +1,5 @@
+import { MessageCircle } from "lucide-react";
+
 import { cn } from "@/lib/utils";
 import {
   TIPO_CUENTA_LABEL,
@@ -6,6 +8,7 @@ import {
   tipoCuenta,
 } from "@/lib/cuenta";
 import { DEFAULT_ESTILO, type Estilo } from "@/lib/estilos";
+import { comprobanteMessage, whatsappLink } from "@/lib/whatsapp";
 
 import { CopyButton } from "./copy-button";
 import { cormorant } from "./fonts";
@@ -17,6 +20,8 @@ export type PaymentCardProps = {
   nombre?: string;
   /** Bank code; only used for cards (a CLABE encodes its bank). */
   banco?: string;
+  /** 10-digit number; adds a button to send the receipt over WhatsApp. */
+  whatsapp?: string;
   estilo?: Estilo;
   /** `page` fills the screen; `preview` is a framed box for the editor. */
   variant?: "page" | "preview";
@@ -28,6 +33,7 @@ export function PaymentCard({
   titulo,
   nombre,
   banco,
+  whatsapp,
   estilo = DEFAULT_ESTILO,
   variant = "page",
 }: PaymentCardProps) {
@@ -56,6 +62,18 @@ export function PaymentCard({
             mono
           />
         </section>
+
+        {whatsapp && (
+          <a
+            className="pc-action"
+            href={whatsappLink(whatsapp, comprobanteMessage(titulo))}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <MessageCircle aria-hidden />
+            Enviar comprobante por WhatsApp
+          </a>
+        )}
       </div>
     </div>
   );
