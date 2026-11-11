@@ -3,8 +3,10 @@ import * as z from "zod";
 import { isValidClabe } from "./clabe";
 
 /**
- * A CLABE page lives at `/<clabe>?t=<título>&n=<nombre>`. This URL is what
- * gets encoded in printed QR codes, so treat its shape as a public format.
+ * A CLABE page lives at `/c/<clabe>?t=<título>&n=<nombre>`. Both params are
+ * optional; a bare `/c/<clabe>` shows just the CLABE and its bank. This URL
+ * is what gets encoded in printed QR codes, so treat its shape as a public
+ * format.
  */
 
 export const tituloSchema = z
@@ -29,6 +31,7 @@ export const nombreSchema = z
     message: "Solo letras, números, espacios y . , & -",
   });
 
+/** What the form collects: everything is required. */
 export const clabePageSchema = z.object({
   titulo: tituloSchema,
   clabe: clabeSchema,
@@ -37,9 +40,30 @@ export const clabePageSchema = z.object({
 
 export type ClabePage = z.infer<typeof clabePageSchema>;
 
-/** Path (with query) of the page for a CLABE, e.g. `/0121...?t=...&n=...`. */
-export function clabePagePath({ clabe, titulo, nombre }: ClabePage): string {
-  return `/${clabe}?${new URLSearchParams({ t: titulo, n: nombre })}`;
+/** Missing or blank is fine, but if present the value must be valid. */
+const optional = <T extends z.ZodType>(schema: T) =>
+  z.preprocess(
+    (value) =>
+      typeof value === "string" && value.trim() === "" ? undefined : value,
+    schema.optional(),
+  );
+
+/** What a CLABE page link carries: only the CLABE is required. */
+export const clabeLinkSchema = z.object({
+  clabe: clabeSchema,
+  titulo: optional(tituloSchema),
+  nombre: optional(nombreSchema),
+});
+
+export type ClabeLink = z.infer<typeof clabeLinkSchema>;
+
+/** Path (with query) of the page for a CLABE, e.g. `/c/0121...?t=...&n=...`. */
+export function clabePagePath({ clabe, titulo, nombre }: ClabeLink): string {
+  const params = new URLSearchParams();
+  if (titulo) params.set("t", titulo);
+  if (nombre) params.set("n", nombre);
+  const query = params.toString();
+  return `/c/${clabe}${query ? `?${query}` : ""}`;
 }
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -49,7 +73,7 @@ const first = (value: string | string[] | undefined) =>
 
 /** Reads and validates a CLABE page from its route param and query. */
 export function parseClabePage(clabe: string, searchParams: SearchParams) {
-  return clabePageSchema.safeParse({
+  return clabeLinkSchema.safeParse({
     clabe,
     titulo: first(searchParams.t),
     nombre: first(searchParams.n),

@@ -31,7 +31,7 @@ async function load({ params, searchParams }: Props) {
 export async function generateMetadata(props: Props): Promise<Metadata> {
   const result = await load(props);
   return {
-    title: result.success ? result.data.titulo : "Datos de pago",
+    title: (result.success && result.data.titulo) || "Datos de pago",
     description: "Usa estos datos para pagar por transferencia.",
     // These pages carry someone's bank details; keep them out of search.
     robots: { index: false, follow: false },
@@ -85,11 +85,13 @@ export default async function ClabePage(props: Props) {
                   <div className="space-y-6 custom-content-section">
                     <Field label="CLABE" value={page.clabe} copyable />
                     {bank && <Field label="Banco" value={bank} />}
-                    <Field
-                      label="Nombre del beneficiario"
-                      value={page.nombre}
-                      copyable
-                    />
+                    {page.nombre && (
+                      <Field
+                        label="Nombre del beneficiario"
+                        value={page.nombre}
+                        copyable
+                      />
+                    )}
                   </div>
                 </div>
 
