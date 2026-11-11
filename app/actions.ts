@@ -1,5 +1,10 @@
 "use server";
 
+import {
+  BRANDING_BUCKET,
+  type BrandingKind,
+  isOwnedBrandingPath,
+} from "@/lib/branding";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import {
   type EditorForm,
@@ -32,9 +37,23 @@ export async function savePage(input: unknown): Promise<SaveResult> {
     };
   }
 
+  // Images must be ones this user uploaded (the database checks this too).
+  for (const kind of ["logo", "fondo"] as BrandingKind[]) {
+    const path = parsed.data[kind];
+    if (path && !isOwnedBrandingPath(path, user.id, kind)) {
+      return { ok: false, field: kind, message: "Vuelve a subir esta imagen." };
+    }
+  }
+
+  const supabase = await createClient();
+  const { data: previous } = await supabase
+    .from("pages")
+    .select("logo_path, fondo_path")
+    .eq("owner_id", user.id)
+    .maybeSingle();
+
   // RLS limits this to the user's own row; owner_id is unique, so this
   // creates the page the first time and updates it after.
-  const supabase = await createClient();
   const { error } = await supabase
     .from("pages")
     .upsert(formToPageRow(parsed.data, user.id), { onConflict: "owner_id" });
@@ -49,6 +68,19 @@ export async function savePage(input: unknown): Promise<SaveResult> {
     }
     console.error("savePage failed", error);
     return { ok: false, message: "No pudimos guardar. Intenta de nuevo." };
+  }
+
+  // Remove images this save replaced or removed. Best effort: a leftover
+  // file is harmless, so don't fail the save over it.
+  const replaced = [
+    previous?.logo_path !== parsed.data.logo && previous?.logo_path,
+    previous?.fondo_path !== parsed.data.fondo && previous?.fondo_path,
+  ].filter((path): path is string => Boolean(path));
+  if (replaced.length > 0) {
+    const { error: removeError } = await supabase.storage
+      .from(BRANDING_BUCKET)
+      .remove(replaced);
+    if (removeError) console.error("Removing old images failed", removeError);
   }
 
   return { ok: true, slug: parsed.data.slug };

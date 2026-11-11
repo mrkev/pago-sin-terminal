@@ -20,6 +20,9 @@ export const savedPageFormSchema = requireBankForCards(
     instagram: socialSchema("instagram"),
     tiktok: socialSchema("tiktok"),
     facebook: socialSchema("facebook"),
+    // Storage paths; ownership is checked on the server when saving.
+    logo: z.string(),
+    fondo: z.string(),
   }),
 );
 
@@ -34,6 +37,8 @@ export const anonEditorSchema = requireBankForCards(
     instagram: z.string(),
     tiktok: z.string(),
     facebook: z.string(),
+    logo: z.string(),
+    fondo: z.string(),
   }),
 );
 
@@ -51,6 +56,8 @@ export const EMPTY_EDITOR_FORM: EditorForm = {
   instagram: "",
   tiktok: "",
   facebook: "",
+  logo: "",
+  fondo: "",
 };
 
 const EDITOR_FIELDS = Object.keys(EMPTY_EDITOR_FORM) as (keyof EditorForm)[];
@@ -78,6 +85,8 @@ export function formToPageRow(
     instagram: form.instagram || null,
     tiktok: form.tiktok || null,
     facebook: form.facebook || null,
+    logo_path: form.logo || null,
+    fondo_path: form.fondo || null,
   };
 }
 
@@ -94,6 +103,8 @@ export function pageRowToForm(row: Tables<"pages">): EditorForm {
     instagram: row.instagram ?? "",
     tiktok: row.tiktok ?? "",
     facebook: row.facebook ?? "",
+    logo: row.logo_path ?? "",
+    fondo: row.fondo_path ?? "",
   };
 }
 

@@ -25,6 +25,9 @@ export type PaymentCardProps = {
   whatsapp?: string;
   /** Social handles (accounts only), shown as links under the details. */
   socials?: Partial<Record<Social, string>>;
+  /** Image URLs (accounts only). */
+  logoUrl?: string;
+  fondoUrl?: string;
   estilo?: Estilo;
   /** `page` fills the screen; `preview` is a framed box for the editor. */
   variant?: "page" | "preview";
@@ -38,6 +41,8 @@ export function PaymentCard({
   banco,
   whatsapp,
   socials,
+  logoUrl,
+  fondoUrl,
   estilo = DEFAULT_ESTILO,
   variant = "page",
 }: PaymentCardProps) {
@@ -47,10 +52,20 @@ export function PaymentCard({
   return (
     <div
       data-estilo={estilo}
+      data-fondo={fondoUrl ? "" : undefined}
+      style={
+        fondoUrl
+          ? ({ "--pc-fondo": `url("${fondoUrl}")` } as React.CSSProperties)
+          : undefined
+      }
       className={cn("pc", `pc--${variant}`, cormorant.variable)}
     >
       <div className="pc-panel">
         <header className="pc-header">
+          {logoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, already resized
+            <img className="pc-logo" src={logoUrl} alt="" />
+          )}
           <h1 className="pc-title">{titulo || "Datos de pago"}</h1>
           <p className="pc-subtitle">Transferencia bancaria</p>
         </header>

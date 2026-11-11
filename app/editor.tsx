@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { BANKS } from "@/lib/banks";
+import { brandingUrl } from "@/lib/branding";
 import { COMMON_BANK_CODES, cuentaBankName, tipoCuenta } from "@/lib/cuenta";
 import { DEFAULT_ESTILO, ESTILOS, ESTILO_INFO } from "@/lib/estilos";
 import {
@@ -42,6 +43,7 @@ import { cn } from "@/lib/utils";
 import { normalizeMxPhone } from "@/lib/whatsapp";
 
 import { savePage } from "./actions";
+import { BrandingField } from "./branding-field";
 import { EditorSection } from "./editor-section";
 import { Result } from "./result";
 
@@ -92,6 +94,8 @@ const FIELD_SECTION: Record<keyof EditorForm, string> = {
   tiktok: "redes",
   facebook: "redes",
   slug: "enlace",
+  logo: "marca",
+  fondo: "marca",
 };
 
 const noopSubscribe = () => () => {};
@@ -128,7 +132,12 @@ export function Editor({ savedPage }: { savedPage: EditorForm | null }) {
   // Signed in: what's saved, and whether the form has changed since.
   const [saved, setSaved] = useState(
     savedPage
-      ? { slug: savedPage.slug, snapshot: editorSnapshot(savedPage) }
+      ? {
+          slug: savedPage.slug,
+          logo: savedPage.logo,
+          fondo: savedPage.fondo,
+          snapshot: editorSnapshot(savedPage),
+        }
       : null,
   );
   const [justSaved, setJustSaved] = useState(false);
@@ -167,7 +176,12 @@ export function Editor({ savedPage }: { savedPage: EditorForm | null }) {
     setSaveError(null);
     const result = await savePage(data);
     if (result.ok) {
-      setSaved({ slug: result.slug, snapshot: editorSnapshot(data) });
+      setSaved({
+        slug: result.slug,
+        logo: data.logo,
+        fondo: data.fondo,
+        snapshot: editorSnapshot(data),
+      });
       setJustSaved(true);
     } else if (result.field) {
       form.setError(result.field, { message: result.message });
@@ -435,19 +449,45 @@ export function Editor({ savedPage }: { savedPage: EditorForm | null }) {
                 value="marca"
                 title="Tu marca"
                 description="Tu logo y una foto de fondo"
-                locked
+                locked={!user}
+                optional={!!user}
               >
-                <div className="grid grid-cols-2 gap-3">
-                  {["Logo", "Foto de fondo"].map((label) => (
-                    <div
-                      key={label}
-                      className="flex flex-col items-center gap-2 rounded-lg border border-dashed p-4 text-center text-sm"
-                    >
-                      <ImageIcon className="size-5" aria-hidden />
-                      {label}
-                    </div>
-                  ))}
-                </div>
+                {user ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    {(["logo", "fondo"] as const).map((kind) => (
+                      <FormField
+                        key={kind}
+                        control={form.control}
+                        name={kind}
+                        render={({ field }) => (
+                          <FormItem>
+                            <BrandingField
+                              kind={kind}
+                              label={kind === "logo" ? "Logo" : "Foto de fondo"}
+                              userId={user.id}
+                              value={field.value}
+                              savedValue={saved?.[kind] ?? ""}
+                              onChange={field.onChange}
+                            />
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    {["Logo", "Foto de fondo"].map((label) => (
+                      <div
+                        key={label}
+                        className="flex flex-col items-center gap-2 rounded-lg border border-dashed p-4 text-center text-sm"
+                      >
+                        <ImageIcon className="size-5" aria-hidden />
+                        {label}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </EditorSection>
 
               <EditorSection
@@ -590,6 +630,12 @@ export function Editor({ savedPage }: { savedPage: EditorForm | null }) {
                   : undefined
               }
               estilo={values.estilo}
+              logoUrl={
+                user && values.logo ? brandingUrl(values.logo) : undefined
+              }
+              fondoUrl={
+                user && values.fondo ? brandingUrl(values.fondo) : undefined
+              }
               socials={
                 user
                   ? {

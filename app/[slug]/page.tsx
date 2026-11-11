@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 
 import { PaymentCard } from "@/components/payment-card/payment-card";
+import { brandingUrl } from "@/lib/branding";
 import { asEstilo } from "@/lib/saved-page";
 import { createClient } from "@/lib/supabase/server";
 
@@ -41,6 +42,8 @@ export default async function SavedPaymentPage({ params }: Props) {
       banco={page.banco ?? undefined}
       whatsapp={page.whatsapp ?? undefined}
       estilo={asEstilo(page.estilo)}
+      logoUrl={page.logo_path ? brandingUrl(page.logo_path) : undefined}
+      fondoUrl={page.fondo_path ? brandingUrl(page.fondo_path) : undefined}
       socials={{
         instagram: page.instagram ?? undefined,
         tiktok: page.tiktok ?? undefined,

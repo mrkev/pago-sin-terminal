@@ -91,6 +91,23 @@
   height: 1.125rem;
 }
 
+.pc-logo {
+  display: block;
+  max-width: 60%;
+  max-height: 6rem;
+  margin: 0 auto 1rem;
+  object-fit: contain;
+}
+
+/* Background photo, darkened so text stays readable. Higher specificity
+   than each style's own background, which it replaces. */
+.pc[data-estilo][data-fondo] {
+  background-image:
+    linear-gradient(rgb(0 0 0 / 0.45), rgb(0 0 0 / 0.6)), var(--pc-fondo);
+  background-size: cover;
+  background-position: center;
+}
+
 .pc-socials {
   display: flex;
   flex-wrap: wrap;
@@ -135,6 +152,10 @@
 
 .pc[data-estilo="neutral"] .pc-header {
   text-align: left;
+}
+
+.pc[data-estilo="neutral"] .pc-logo {
+  margin-left: 0;
 }
 
 .pc[data-estilo="neutral"] .pc-title {
