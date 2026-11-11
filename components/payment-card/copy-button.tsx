@@ -3,8 +3,6 @@
 import { Check, Copy } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { Button } from "@/components/ui/button";
-
 export function CopyButton({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false);
 
@@ -24,14 +22,13 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
   }
 
   return (
-    <Button
-      variant="default"
-      size="icon"
+    <button
+      type="button"
+      className="pc-copy"
       aria-label={copied ? `${label} copiado` : `Copiar ${label}`}
-      className="custom-copy-button h-[42px] rounded-l-none"
       onClick={copy}
     >
-      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-    </Button>
+      {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
+    </button>
   );
 }

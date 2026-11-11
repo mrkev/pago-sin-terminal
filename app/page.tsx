@@ -1,21 +1,14 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Download, FileText } from "lucide-react";
-import { useRef, useState } from "react";
+import { Check, Download, ExternalLink, Link2, Share2 } from "lucide-react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import QRCode from "react-qr-code";
 
+import { PaymentCard } from "@/components/payment-card/payment-card";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Form,
   FormControl,
@@ -26,221 +19,393 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
-import { clabeBankName } from "@/lib/clabe";
+import { BANKS } from "@/lib/banks";
+import { COMMON_BANK_CODES, cuentaBankName, tipoCuenta } from "@/lib/cuenta";
+import { DEFAULT_ESTILO, ESTILOS, ESTILO_INFO } from "@/lib/estilos";
 import {
-  type ClabePage,
-  clabePagePath,
-  clabePageSchema,
-} from "@/lib/clabe-page";
+  type PaymentForm,
+  formToLink,
+  paymentFormSchema,
+  paymentPagePath,
+} from "@/lib/payment-page";
+import { cn } from "@/lib/utils";
 
-/** Pixel size of the QR in the downloaded PNG, not counting the margin. */
-const DOWNLOAD_SIZE = 1024;
-/** Blank margin around a QR code, in modules, needed for reliable scans. */
-const QUIET_ZONE_MODULES = 4;
+import { qrToPng } from "./qr-image";
+
+const QR_FILENAME = "clabe-club-qr.png";
+
+const ALL_BANKS = Object.entries(BANKS).sort(([, a], [, b]) =>
+  a.localeCompare(b, "es"),
+);
+
+const noopSubscribe = () => () => {};
 
 export default function Home() {
-  const [qrValue, setQrValue] = useState<string | null>(null);
-  const qrRef = useRef<HTMLDivElement>(null);
-
-  const form = useForm<ClabePage>({
-    resolver: zodResolver(clabePageSchema),
+  const form = useForm<PaymentForm>({
+    resolver: zodResolver(paymentFormSchema),
     defaultValues: {
       titulo: "",
-      clabe: "",
+      cuenta: "",
+      banco: "",
       nombre: "",
+      estilo: DEFAULT_ESTILO,
     },
   });
-  const clabe = useWatch({ control: form.control, name: "clabe" });
-  const bank = clabeBankName(clabe);
+  const values = useWatch({ control: form.control });
+  const cuenta = values.cuenta ?? "";
+  const tipo = tipoCuenta(cuenta);
+  const bank = cuentaBankName(cuenta, values.banco);
 
-  function onSubmit(values: ClabePage) {
-    setQrValue(`${window.location.origin}${clabePagePath(values)}`);
+  // The path for the current values, if they're valid. The result section
+  // only shows while it matches what was generated, so editing the form
+  // after generating hides a now-stale QR.
+  const parsed = paymentFormSchema.safeParse(values);
+  const currentPath = parsed.success
+    ? paymentPagePath(formToLink(parsed.data))
+    : null;
+  const [generatedPath, setGeneratedPath] = useState<string | null>(null);
+  const showResult = generatedPath !== null && generatedPath === currentPath;
+
+  function onSubmit(data: PaymentForm) {
+    setGeneratedPath(paymentPagePath(formToLink(data)));
   }
 
-  const fillExampleData = () => {
+  function fillExampleData() {
     form.setValue("titulo", "Café Ejemplar");
-    form.setValue("clabe", "012180000000000002");
+    form.setValue("cuenta", "012180000000000002");
     form.setValue("nombre", "Kevin Chavez");
-  };
-
-  const downloadQRCode = () => {
-    const svg = qrRef.current?.querySelector("svg");
-    if (!svg) return;
-
-    // react-qr-code sets the viewBox to the QR's size in modules.
-    const modules = svg.viewBox.baseVal.width;
-    const margin = Math.round((DOWNLOAD_SIZE / modules) * QUIET_ZONE_MODULES);
-
-    const canvas = document.createElement("canvas");
-    canvas.width = canvas.height = DOWNLOAD_SIZE + margin * 2;
-
-    const img = new Image();
-    img.onload = () => {
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-
-      ctx.fillStyle = "white";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, margin, margin, DOWNLOAD_SIZE, DOWNLOAD_SIZE);
-
-      const link = document.createElement("a");
-      link.download = "clabe-club-qr.png";
-      link.href = canvas.toDataURL("image/png");
-      link.click();
-    };
-
-    const svgData = new XMLSerializer().serializeToString(svg);
-    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgData)}`;
-  };
+  }
 
   return (
-    <div className="container mx-auto px-4 py-10">
-      <div className="max-w-2xl mx-auto mb-4 flex justify-end">
-        <ThemeToggle />
-      </div>
-      <Card className="max-w-2xl mx-auto">
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <div>
-              <CardTitle>CLABE.club</CardTitle>
-              <CardDescription>
-                Ingresa la información que incluirá la página de tu CLABE
-              </CardDescription>
+    <main className="mx-auto max-w-5xl px-4 py-6 sm:py-10">
+      <header className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">CLABE.club</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Ingresa la información que incluirá la página de tu cuenta
+          </p>
+        </div>
+        <ThemeToggle className="shrink-0" />
+      </header>
+
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:grid-rows-[auto_1fr] lg:gap-x-12">
+        <Form {...form}>
+          <form
+            id="payment-form"
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="space-y-6 lg:col-start-1 lg:row-start-1"
+          >
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={fillExampleData}
+              >
+                Llenar con ejemplo
+              </Button>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fillExampleData}
-              className="flex items-center gap-2"
-            >
-              <FileText className="h-4 w-4" />
-              Ejemplo
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+
+            <FormField
+              control={form.control}
+              name="titulo"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Encabezado</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Ej. Café Ejemplar"
+                      maxLength={60}
+                      autoComplete="organization"
+                      enterKeyHint="next"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Puede ser el nombre de tu negocio o cualquier título que
+                    quieras
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="cuenta"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>CLABE o tarjeta de débito</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="18 o 16 dígitos"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      enterKeyHint="next"
+                      {...field}
+                      // Accept pasted numbers with spaces or dashes.
+                      onChange={(e) =>
+                        field.onChange(
+                          e.target.value.replace(/\D/g, "").slice(0, 18),
+                        )
+                      }
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {tipo === "clabe"
+                      ? `CLABE${bank ? ` · ${bank}` : ""}`
+                      : tipo === "tarjeta"
+                        ? "Tarjeta de débito"
+                        : "CLABE de 18 dígitos o tarjeta de débito de 16"}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {tipo === "tarjeta" && (
               <FormField
                 control={form.control}
-                name="titulo"
+                name="banco"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Encabezado</FormLabel>
+                    <FormLabel>Banco de tu tarjeta</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="Ej. Café Ejemplar"
-                        maxLength={60}
+                      <select
+                        className={cn(
+                          "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:text-sm",
+                          !field.value && "text-muted-foreground",
+                        )}
                         {...field}
-                      />
+                      >
+                        <option value="" disabled>
+                          Elige tu banco
+                        </option>
+                        <optgroup label="Más comunes">
+                          {COMMON_BANK_CODES.map((code) => (
+                            <option key={code} value={code}>
+                              {BANKS[code]}
+                            </option>
+                          ))}
+                        </optgroup>
+                        <optgroup label="Todos">
+                          {ALL_BANKS.map(([code, name]) => (
+                            <option key={code} value={code}>
+                              {name}
+                            </option>
+                          ))}
+                        </optgroup>
+                      </select>
                     </FormControl>
                     <FormDescription>
-                      Puede ser el nombre de tu negocio o cualquier título que
-                      quieras
+                      Quien te pague lo necesita para transferir a una tarjeta
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+            )}
 
-              <div>
-                <h3 className="text-lg font-medium mb-4">
-                  Información bancaria
-                </h3>
-                <Separator className="mb-4" />
+            <FormField
+              control={form.control}
+              name="nombre"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nombre del beneficiario</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Como aparece en tu banco"
+                      maxLength={80}
+                      autoComplete="name"
+                      enterKeyHint="done"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>Máximo 80 caracteres</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-                <div className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="clabe"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>CLABE</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="Los 18 dígitos de tu CLABE"
-                            inputMode="numeric"
-                            autoComplete="off"
-                            {...field}
-                            // Accept pasted CLABEs with spaces or dashes.
-                            onChange={(e) =>
-                              field.onChange(
-                                e.target.value.replace(/\D/g, "").slice(0, 18),
-                              )
-                            }
+            <FormField
+              control={form.control}
+              name="estilo"
+              render={({ field }) => (
+                <FormItem>
+                  <fieldset>
+                    <legend className="mb-2 text-sm font-medium">Estilo</legend>
+                    <div className="grid grid-cols-3 gap-2">
+                      {ESTILOS.map((estilo) => (
+                        <label
+                          key={estilo}
+                          className="cursor-pointer rounded-lg border p-2 text-center text-sm transition-colors hover:bg-accent has-checked:border-primary has-checked:ring-2 has-checked:ring-primary has-focus-visible:ring-2 has-focus-visible:ring-ring"
+                        >
+                          <input
+                            type="radio"
+                            name={field.name}
+                            value={estilo}
+                            checked={field.value === estilo}
+                            onChange={() => field.onChange(estilo)}
+                            className="sr-only"
                           />
-                        </FormControl>
-                        <FormDescription>
-                          {bank ? `Banco: ${bank}` : "18 dígitos, solo números"}
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="nombre"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nombre del beneficiario</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="Como aparece en tu banco"
-                            maxLength={80}
-                            {...field}
+                          <span
+                            aria-hidden
+                            className="mb-2 block h-10 rounded-md border"
+                            style={{ background: ESTILO_INFO[estilo].swatch }}
                           />
-                        </FormControl>
-                        <FormDescription>Máximo 80 caracteres</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
+                          {ESTILO_INFO[estilo].label}
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                </FormItem>
+              )}
+            />
+          </form>
+        </Form>
 
-              <Button type="submit" className="w-full">
-                Generar código QR
-              </Button>
-            </form>
-          </Form>
-        </CardContent>
+        <section
+          aria-label="Vista previa"
+          className="lg:sticky lg:top-6 lg:col-start-2 lg:row-span-2 lg:row-start-1"
+        >
+          <h2 className="mb-2 text-sm font-medium text-muted-foreground">
+            Vista previa
+          </h2>
+          <div className="rounded-2xl border">
+            <PaymentCard
+              variant="preview"
+              cuenta={cuenta || "000000000000000000"}
+              titulo={values.titulo || "Tu negocio"}
+              nombre={values.nombre || "Tu nombre"}
+              banco={values.banco}
+              estilo={values.estilo}
+            />
+          </div>
+        </section>
 
-        {qrValue && (
-          <CardFooter className="flex flex-col items-center">
-            <Separator className="mb-4 w-full" />
-            <div className="p-4 bg-white rounded-lg" ref={qrRef}>
-              <QRCode value={qrValue} size={200} />
-            </div>
-            <div className="mt-4 flex flex-col items-center gap-2">
-              <p className="text-sm text-muted-foreground text-center max-w-md">
-                Este QR abre la página de tu CLABE. Descárgalo, mándalo,
-                imprímelo, lo que quieras.
-              </p>
-              <div className="flex gap-4 mt-2">
-                <a
-                  href={qrValue}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline text-sm flex items-center"
-                >
-                  Ver página
-                </a>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={downloadQRCode}
-                  className="flex items-center gap-2"
-                >
-                  <Download className="h-4 w-4" />
-                  Descargar QR
-                </Button>
-              </div>
-            </div>
-          </CardFooter>
+        <div className="space-y-6 lg:col-start-1 lg:row-start-2">
+          <Button
+            type="submit"
+            form="payment-form"
+            className="w-full"
+            size="lg"
+          >
+            Generar código QR
+          </Button>
+          {showResult && <Result path={generatedPath} titulo={values.titulo} />}
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function Result({ path, titulo }: { path: string; titulo?: string }) {
+  const origin = useSyncExternalStore(
+    noopSubscribe,
+    () => window.location.origin,
+    () => "",
+  );
+  const canShare = useSyncExternalStore(
+    noopSubscribe,
+    () => typeof navigator.share === "function",
+    () => false,
+  );
+  const url = `${origin}${path}`;
+  const sectionRef = useRef<HTMLElement>(null);
+  const qrRef = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState(false);
+
+  // On phones the result appears below the fold; bring it into view.
+  useEffect(() => {
+    sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [path]);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timeout = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(timeout);
+  }, [copied]);
+
+  async function qrPng() {
+    const svg = qrRef.current?.querySelector("svg");
+    if (!svg) throw new Error("QR not rendered");
+    return qrToPng(svg);
+  }
+
+  async function share() {
+    const title = titulo || "Datos de pago";
+    try {
+      const file = new File([await qrPng()], QR_FILENAME, {
+        type: "image/png",
+      });
+      const withQr = { title, text: url, files: [file] };
+      await navigator.share(
+        navigator.canShare?.(withQr) ? withQr : { title, url },
+      );
+    } catch (error) {
+      // Closing the share sheet rejects with AbortError; that's fine.
+      if (!(error instanceof DOMException && error.name === "AbortError")) {
+        console.error(error);
+      }
+    }
+  }
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+    } catch {
+      // Clipboard access can be denied; the link is still visible.
+    }
+  }
+
+  async function download() {
+    const href = URL.createObjectURL(await qrPng());
+    const link = document.createElement("a");
+    link.download = QR_FILENAME;
+    link.href = href;
+    link.click();
+    URL.revokeObjectURL(href);
+  }
+
+  return (
+    <section
+      ref={sectionRef}
+      aria-label="Tu código QR"
+      className="scroll-mt-6 flex flex-col items-center gap-4 rounded-2xl border p-6"
+    >
+      <div className="rounded-lg bg-white p-4" ref={qrRef}>
+        <QRCode value={url} size={200} />
+      </div>
+      <p className="max-w-sm text-center text-sm text-muted-foreground">
+        Este QR abre tu página de pago. Compártelo, descárgalo, imprímelo, lo
+        que quieras.
+      </p>
+      <p className="w-full truncate rounded-md bg-muted px-3 py-2 text-center font-mono text-xs">
+        {url}
+      </p>
+      <div className="grid w-full gap-2 sm:grid-cols-2">
+        {canShare && (
+          <Button onClick={share} className="sm:col-span-2">
+            <Share2 />
+            Compartir
+          </Button>
         )}
-      </Card>
-    </div>
+        <Button variant="outline" onClick={copyLink}>
+          {copied ? <Check /> : <Link2 />}
+          {copied ? "Enlace copiado" : "Copiar enlace"}
+        </Button>
+        <Button variant="outline" onClick={download}>
+          <Download />
+          Descargar QR
+        </Button>
+        <Button variant="ghost" asChild className="sm:col-span-2">
+          <a href={path} target="_blank" rel="noopener noreferrer">
+            <ExternalLink />
+            Ver página
+          </a>
+        </Button>
+      </div>
+    </section>
   );
 }

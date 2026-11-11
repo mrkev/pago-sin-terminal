@@ -1,0 +1,286 @@
+/*
+ * Payment page styles. Structure is shared; each preset is scoped to
+ * .pc[data-estilo="..."]. To add a preset, add its key to lib/estilos.ts
+ * and a block here.
+ */
+
+/* ---------- Structure ---------- */
+
+.pc {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 2.5rem 1rem;
+}
+
+.pc--page {
+  min-height: 100dvh;
+}
+
+.pc--preview {
+  padding: 1.75rem 1rem;
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+.pc-panel {
+  width: 100%;
+  max-width: 32rem;
+}
+
+.pc-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.pc-title {
+  overflow-wrap: anywhere;
+}
+
+.pc-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.pc-row {
+  display: flex;
+  align-items: stretch;
+  margin-top: 0.375rem;
+}
+
+.pc-value {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.pc-value--mono {
+  font-variant-numeric: tabular-nums;
+}
+
+.pc-copy {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  cursor: pointer;
+}
+
+.pc-copy svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* ---------- Neutral: follows the payer's light/dark setting ---------- */
+
+.pc[data-estilo="neutral"] {
+  background: hsl(var(--muted) / 0.5);
+  color: hsl(var(--foreground));
+}
+
+.pc[data-estilo="neutral"] .pc-panel {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
+}
+
+.pc[data-estilo="neutral"] .pc-header {
+  text-align: left;
+}
+
+.pc[data-estilo="neutral"] .pc-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.pc[data-estilo="neutral"] .pc-subtitle {
+  margin-top: 0.25rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.pc[data-estilo="neutral"] .pc-section {
+  display: none;
+}
+
+.pc[data-estilo="neutral"] .pc-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+}
+
+.pc[data-estilo="neutral"] .pc-value {
+  padding: 0.75rem;
+  background: hsl(var(--muted));
+  border-radius: 0.5rem 0 0 0.5rem;
+  font-weight: 500;
+}
+
+.pc[data-estilo="neutral"] .pc-value--solo {
+  border-radius: 0.5rem;
+}
+
+.pc[data-estilo="neutral"] .pc-copy {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border-radius: 0 0.5rem 0.5rem 0;
+}
+
+.pc[data-estilo="neutral"] .pc-copy:hover {
+  opacity: 0.9;
+}
+
+/* ---------- Elegante: serif, warm, for boutique businesses ---------- */
+
+.pc[data-estilo="elegante"] {
+  font-family: var(--font-elegante), Georgia, serif;
+  color: #f5efe6;
+  background:
+    radial-gradient(ellipse at 50% 0%, #5a4130 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 100%, #3a2a1f 0%, transparent 55%), #140f0c;
+}
+
+.pc[data-estilo="elegante"] .pc-header {
+  margin-bottom: 2rem;
+}
+
+.pc[data-estilo="elegante"] .pc-title {
+  font-size: clamp(2.5rem, 11vw, 3.75rem);
+  font-style: italic;
+  font-weight: 600;
+  line-height: 1.05;
+}
+
+.pc[data-estilo="elegante"] .pc-subtitle {
+  display: inline-block;
+  margin-top: 1rem;
+  padding: 0.25rem 1.25rem;
+  border-radius: 9999px;
+  background: rgb(0 0 0 / 0.35);
+  font-size: 1.25rem;
+}
+
+.pc[data-estilo="elegante"] .pc-fields {
+  gap: 1.5rem;
+  padding: 1.75rem 1.5rem;
+  border-radius: 1.25rem;
+  background: rgb(0 0 0 / 0.35);
+  backdrop-filter: blur(6px);
+}
+
+.pc[data-estilo="elegante"] .pc-section {
+  display: none;
+}
+
+.pc[data-estilo="elegante"] .pc-label {
+  font-size: 1.375rem;
+  font-weight: 700;
+}
+
+.pc[data-estilo="elegante"] .pc-row {
+  align-items: center;
+  margin-top: 0;
+}
+
+.pc[data-estilo="elegante"] .pc-value {
+  font-size: 1.375rem;
+}
+
+.pc[data-estilo="elegante"] .pc-value--mono {
+  letter-spacing: 0.03em;
+}
+
+.pc[data-estilo="elegante"] .pc-copy {
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-left: 0.75rem;
+  border: 1px solid rgb(255 255 255 / 0.3);
+  border-radius: 9999px;
+  color: rgb(255 255 255 / 0.85);
+}
+
+.pc[data-estilo="elegante"] .pc-copy:hover {
+  background: rgb(255 255 255 / 0.1);
+}
+
+/* ---------- Garage: black and orange ---------- */
+
+.pc[data-estilo="garage"] {
+  color: white;
+  background-color: black;
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48cGF0aCBkPSJNMzAgMEMxMy40IDAgMCAxMy40IDAgMzBzMTMuNCAzMCAzMCAzMCAzMC0xMy40IDMwLTMwUzQ2LjYgMCAzMCAwem0wIDU0QzE2LjggNTQgNiA0My4yIDYgMzBTMTYuOCA2IDMwIDZzMjQgMTAuOCAyNCAyNC0xMC44IDI0LTI0IDI0eiIgZmlsbD0iIzFhMWExYSIgZmlsbC1vcGFjaXR5PSIwLjA1Ii8+PC9zdmc+");
+}
+
+.pc[data-estilo="garage"] .pc-panel {
+  padding: 1.5rem;
+  background-color: #18181b; /* zinc-900 */
+  border: 2px solid #f97316; /* orange-500 */
+  border-radius: 0.5rem;
+  box-shadow: 0 0 15px rgb(249 115 22 / 0.3);
+}
+
+.pc[data-estilo="garage"] .pc-title {
+  font-size: clamp(2rem, 9vw, 3rem);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #f97316;
+  text-shadow: 2px 2px 4px rgb(0 0 0 / 0.5);
+}
+
+.pc[data-estilo="garage"] .pc-subtitle {
+  margin-top: 0.5rem;
+  color: #a1a1aa; /* zinc-400 */
+}
+
+.pc[data-estilo="garage"] .pc-section {
+  margin-bottom: 0.25rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #3f3f46; /* zinc-700 */
+  text-align: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #f97316;
+}
+
+.pc[data-estilo="garage"] .pc-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #f97316;
+}
+
+.pc[data-estilo="garage"] .pc-value {
+  padding: 0.75rem;
+  background-color: #27272a; /* zinc-800 */
+  border: 2px solid #f97316;
+  border-right: none;
+  border-radius: 0.375rem 0 0 0.375rem;
+  font-family: ui-monospace, monospace;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.pc[data-estilo="garage"] .pc-value--solo {
+  border-right: 2px solid #f97316;
+  border-radius: 0.375rem;
+}
+
+.pc[data-estilo="garage"] .pc-copy {
+  background-color: #f97316;
+  border: 2px solid #f97316;
+  border-radius: 0 0.375rem 0.375rem 0;
+  color: white;
+}
+
+.pc[data-estilo="garage"] .pc-copy:hover {
+  background-color: #ea580c; /* orange-600 */
+}
