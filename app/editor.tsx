@@ -1,7 +1,14 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Check, ImageIcon, TriangleAlert } from "lucide-react";
+import {
+  Check,
+  ImageIcon,
+  LoaderCircle,
+  QrCode,
+  Smartphone,
+  TriangleAlert,
+} from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { type FieldErrors, useForm, useWatch } from "react-hook-form";
 
@@ -20,16 +27,19 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { BANKS } from "@/lib/banks";
 import { brandingUrl } from "@/lib/branding";
 import { COMMON_BANK_CODES, cuentaBankName, tipoCuenta } from "@/lib/cuenta";
 import { DEFAULT_ESTILO, ESTILOS, ESTILO_INFO } from "@/lib/estilos";
-import {
-  formToLink,
-  paymentFormSchema,
-  paymentPagePath,
-} from "@/lib/payment-page";
+import { formToLink, paymentPagePath } from "@/lib/payment-page";
 import {
   EMPTY_EDITOR_FORM,
   type EditorForm,
@@ -38,6 +48,7 @@ import {
   savedPageFormSchema,
 } from "@/lib/saved-page";
 import { suggestSlug, toSlugInput } from "@/lib/slug";
+import { linkStoryImagePath, savedStoryImagePath } from "@/lib/story";
 import { SOCIALS, SOCIAL_INFO, normalizeHandle } from "@/lib/socials";
 import { cn } from "@/lib/utils";
 import { normalizeMxPhone } from "@/lib/whatsapp";
@@ -45,7 +56,7 @@ import { normalizeMxPhone } from "@/lib/whatsapp";
 import { savePage } from "./actions";
 import { BrandingField } from "./branding-field";
 import { EditorSection } from "./editor-section";
-import { Result } from "./result";
+import { QrPanel, StoryPanel } from "./outputs";
 
 const ALL_BANKS = Object.entries(BANKS).sort(([, a], [, b]) =>
   a.localeCompare(b, "es"),
@@ -140,7 +151,6 @@ export function Editor({ savedPage }: { savedPage: EditorForm | null }) {
         }
       : null,
   );
-  const [justSaved, setJustSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const hasUnsavedChanges =
     saved !== null && editorSnapshot(values) !== saved.snapshot;
@@ -148,15 +158,15 @@ export function Editor({ savedPage }: { savedPage: EditorForm | null }) {
   const tipo = tipoCuenta(cuenta);
   const bank = cuentaBankName(cuenta, values.banco);
 
-  // The path for the current values, if they're valid. The result section
-  // only shows while it matches what was generated, so editing the form
-  // after generating hides a now-stale QR.
-  const parsed = paymentFormSchema.safeParse(values);
-  const currentPath = parsed.success
-    ? paymentPagePath(formToLink(parsed.data))
-    : null;
-  const [generatedPath, setGeneratedPath] = useState<string | null>(null);
-  const showResult = generatedPath !== null && generatedPath === currentPath;
+  // The open output dialog, with what it shows: generated from the values
+  // at the moment it was opened, so it can't go stale while open.
+  const [output, setOutput] = useState<{
+    kind: "qr" | "historia";
+    pagePath: string;
+    storyPath: string;
+    titulo: string;
+    saved: boolean;
+  } | null>(null);
 
   const [openSections, setOpenSections] = useState(
     user ? [...DEFAULT_OPEN_SECTIONS, "enlace"] : DEFAULT_OPEN_SECTIONS,
@@ -168,11 +178,8 @@ export function Editor({ savedPage }: { savedPage: EditorForm | null }) {
     if (fields[0]) requestAnimationFrame(() => form.setFocus(fields[0]));
   }
 
-  async function onSubmit(data: EditorForm) {
-    if (!user) {
-      setGeneratedPath(paymentPagePath(formToLink(data)));
-      return;
-    }
+  /** Saves the page (signed in). Returns its slug, or null on failure. */
+  async function save(data: EditorForm): Promise<string | null> {
     setSaveError(null);
     const result = await savePage(data);
     if (result.ok) {
@@ -182,13 +189,51 @@ export function Editor({ savedPage }: { savedPage: EditorForm | null }) {
         fondo: data.fondo,
         snapshot: editorSnapshot(data),
       });
-      setJustSaved(true);
-    } else if (result.field) {
+      return result.slug;
+    }
+    if (result.field) {
       form.setError(result.field, { message: result.message });
       openSectionsFor([result.field]);
     } else {
       setSaveError(result.message);
     }
+    return null;
+  }
+
+  /**
+   * Validates, then opens an output. Signed in, saves pending changes
+   * first so what's shared is current; signed out, uses the free link.
+   */
+  function openOutput(kind: "qr" | "historia") {
+    return form.handleSubmit(async (data) => {
+      if (!user) {
+        const link = formToLink(data);
+        setOutput({
+          kind,
+          pagePath: paymentPagePath(link),
+          storyPath: linkStoryImagePath(link),
+          titulo: data.titulo,
+          saved: false,
+        });
+        return;
+      }
+      const slug = saved && !hasUnsavedChanges ? saved.slug : await save(data);
+      if (!slug) return;
+      setOutput({
+        kind,
+        pagePath: `/${slug}`,
+        // Saved pages change; a fresh URL avoids a stale cached image.
+        storyPath: `${savedStoryImagePath(slug)}&v=${Date.now()}`,
+        titulo: data.titulo,
+        saved: true,
+      });
+    }, onInvalid)();
+  }
+
+  async function onSubmit(data: EditorForm) {
+    // Enter in the form: save when signed in, QR when not.
+    if (user) await save(data);
+    else await openOutput("qr");
   }
 
   // Errors can be in a collapsed section: open it and focus the field.
@@ -649,45 +694,105 @@ export function Editor({ savedPage }: { savedPage: EditorForm | null }) {
           </div>
         </section>
 
-        <div className="space-y-6 lg:col-start-1 lg:row-start-2">
-          <Button
-            type="submit"
-            form="payment-form"
-            className="w-full"
-            size="lg"
-            disabled={form.formState.isSubmitting}
-          >
-            {!user
-              ? "Generar código QR"
-              : form.formState.isSubmitting
-                ? "Guardando…"
-                : saved && !hasUnsavedChanges
-                  ? "Guardado"
-                  : saved
-                    ? "Guardar cambios"
-                    : "Guardar mi página"}
-          </Button>
+        <div className="space-y-3 lg:col-start-1 lg:row-start-2">
+          {user && (
+            <Button
+              type="submit"
+              form="payment-form"
+              className="w-full"
+              size="lg"
+              disabled={
+                form.formState.isSubmitting ||
+                (saved !== null && !hasUnsavedChanges)
+              }
+            >
+              {form.formState.isSubmitting ? (
+                <>
+                  <LoaderCircle className="animate-spin" />
+                  Guardando…
+                </>
+              ) : saved && !hasUnsavedChanges ? (
+                <>
+                  <Check />
+                  Guardado
+                </>
+              ) : saved ? (
+                "Guardar cambios"
+              ) : (
+                "Guardar mi página"
+              )}
+            </Button>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              type="button"
+              size="lg"
+              variant={user ? "outline" : "default"}
+              disabled={form.formState.isSubmitting}
+              onClick={() => openOutput("qr")}
+            >
+              <QrCode />
+              Código QR
+            </Button>
+            <Button
+              type="button"
+              size="lg"
+              variant="outline"
+              disabled={form.formState.isSubmitting}
+              onClick={() => openOutput("historia")}
+            >
+              <Smartphone />
+              Para historias
+            </Button>
+          </div>
           {saveError && (
             <p className="text-center text-sm text-destructive">{saveError}</p>
           )}
           {user && hasUnsavedChanges && (
             <p className="text-center text-sm text-muted-foreground">
-              Tienes cambios sin guardar
+              Tienes cambios sin guardar. Se guardan al compartir.
             </p>
           )}
-          {user
-            ? saved && (
-                <Result
-                  path={`/${saved.slug}`}
-                  titulo={values.titulo}
-                  autoScroll={justSaved}
-                  description="Este QR abre tu página. Puedes cambiar tus datos cuando quieras: el QR sigue funcionando."
-                />
-              )
-            : showResult && (
-                <Result path={generatedPath} titulo={values.titulo} />
-              )}
         </div>
+
+        <Dialog
+          open={output !== null}
+          onOpenChange={(open) => !open && setOutput(null)}
+        >
+          <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-md">
+            {output?.kind === "qr" && (
+              <>
+                <DialogHeader>
+                  <DialogTitle>Tu código QR</DialogTitle>
+                  <DialogDescription>
+                    {output.saved
+                      ? "Abre tu página. Puedes cambiar tus datos cuando quieras: el QR sigue funcionando."
+                      : "Abre tu página de pago. Compártelo, descárgalo, imprímelo, lo que quieras."}
+                  </DialogDescription>
+                </DialogHeader>
+                <QrPanel path={output.pagePath} titulo={output.titulo} />
+              </>
+            )}
+            {output?.kind === "historia" && (
+              <>
+                <DialogHeader>
+                  <DialogTitle>Imagen para historias</DialogTitle>
+                  <DialogDescription>
+                    Del tamaño de una historia de Instagram o WhatsApp.
+                  </DialogDescription>
+                </DialogHeader>
+                <StoryPanel
+                  imagePath={output.storyPath}
+                  pagePath={output.pagePath}
+                  titulo={output.titulo}
+                  shortLink={
+                    output.saved ? `${host}${output.pagePath}` : undefined
+                  }
+                />
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </main>
   );
