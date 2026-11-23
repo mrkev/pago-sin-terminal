@@ -51,17 +51,8 @@
     "typescript": "^6.0.3",
     "vitest": "^5.1.0"
   },
-  "packageManager": "pnpm@10.34.9",
+  "packageManager": "pnpm@12.21.0",
   "engines": {
     "node": ">=20.9.0"
-  },
-  "pnpm": {
-    "peerDependencyRules": {
-      "allowedVersions": {
-        "eslint-plugin-react>eslint": "10",
-        "eslint-plugin-import>eslint": "10",
-        "eslint-plugin-jsx-a11y>eslint": "10"
-      }
-    }
   }
 }
